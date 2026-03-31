@@ -1,0 +1,33 @@
+<!-- frontend/login.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Login - Olimpiadas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Olimpiadas Internas</h1>
+  <div class="card">
+    <h2>Login</h2>
+    <div id="info" class="small">No autenticado</div>
+    <input id="user" placeholder="usuario" value="admin"><br>
+    <input id="pass" placeholder="clave" type="password" value="admin123"><br>
+    <button id="btn">Ingresar</button>
+  </div>
+
+  <script type="module">
+    import { setToken } from './auth.js';
+    const BASE = location.origin;
+    document.getElementById('btn').addEventListener('click', async ()=>{
+      const username=document.getElementById('user').value.trim();
+      const password=document.getElementById('pass').value;
+      const r = await fetch(BASE+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+      const d = await r.json();
+      if(!r.ok){ alert(d.error||'Login inválido'); return; }
+      setToken(d.token); localStorage.setItem('username', d.username); localStorage.setItem('role', d.role);
+      location.href='admin.html';
+    });
+  </script>
+</body>
+</html>

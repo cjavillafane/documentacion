@@ -1,0 +1,2039 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Admin / Sorteo - Olimpiadas</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="/socket.io/socket.io.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root{
+      --b:#e5e7eb; --bb:#cbd5e1; --t:#111827; --mut:#6b7280; --bg:#fff;
+      --btn:#fafafa; --btnb:#9ca3af; --ok:#16a34a; --warn:#b45309; --err:#b91c1c;
+      --final:#dbeafe;
+    }
+    html,body{margin:0;padding:0;font-family:system-ui,Segoe UI,Arial,sans-serif;color:var(--t);background:var(--bg)}
+    .wrap{padding:16px;max-width:1280px;margin:0 auto}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .col{display:flex;flex-direction:column;gap:8px}
+    .grow{flex:1}
+    .card{border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:16px;background:#fff}
+    .title{font-size:20px;font-weight:700;margin:0 0 8px}
+    .mut{color:var(--mut);font-size:12px}
+    .btn{border:1px solid var(--btnb);background:var(--btn);padding:6px 10px;border-radius:8px;cursor:pointer}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .pill{display:inline-flex;align-items:center;border:1px solid var(--bb);border-radius:999px;padding:4px 8px;margin:4px 6px 0 0;background:#fff}
+    .chip{display:inline-flex;align-items:center;border:1px solid var(--bb);border-radius:8px;padding:6px 8px;margin:6px 6px 0 0;background:#fff}
+    .chip .a{border:1px solid var(--bb);background:#f8fafc;border-radius:6px;padding:2px 6px;cursor:pointer;margin-left:6px}
+    .grid{display:grid;gap:12px}
+    .cols-2{grid-template-columns:1fr 1fr}
+    .cols-3{grid-template-columns:repeat(3,minmax(220px,1fr))}
+    .match{border:1px solid var(--bb);border-radius:10px;padding:10px;min-height:92px;background:#fff;position:relative}
+    .match.final{background:var(--final)}
+    .small{font-size:12px;color:var(--mut)}
+    label{font-size:14px}
+    input[type=number]{width:80px}
+    select, input[type=text], input[type=number], input[type=datetime-local]{padding:6px 8px;border:1px solid var(--bb);border-radius:8px}
+    textarea{width:100%;min-height:80px;border:1px solid var(--bb);border-radius:8px;padding:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid var(--b);padding:6px 8px;text-align:left}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+    .sp{height:8px}
+    .lb{width:100%;min-height:200px}
+    .badge{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bb);padding:6px 8px;border-radius:999px;margin:6px 6px 0 0}
+    .bracketGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .roundTitle{font-weight:700;margin-bottom:6px}
+    .sep{padding:0 6px}
+    .score{width:64px}
+    /* Bracket horizontal en columnas */
+    #bracketRounds{position:relative;overflow-x:auto;overflow-y:hidden;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+    #bracketRounds .rounds{display:flex;flex-flow:row nowrap;gap:16px;align-items:flex-start}
+    #bracketRoundsPenales{position:relative;overflow-x:auto;overflow-y:hidden;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+    #bracketRoundsPenales .roundsPenales{display:flex;flex-flow:row nowrap;gap:16px;align-items:flex-start}
+    .round-col{flex:0 0 360px;max-width:360px}
+    .round-col .round-title{position:sticky;top:0;z-index:1;background:#fff;padding:6px 4px;font-weight:600;border-bottom:1px solid #eee;margin-bottom:8px}
+    .match-card{border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;background:#fff;min-height:86px;display:flex;flex-direction:column;justify-content:space-between}
+    #bracketLines{position:absolute;inset:0;pointer-events:none}
+    @media (max-width:1200px){ .round-col{flex-basis:320px;max-width:320px} }
+    @media (max-width:992px){ .round-col{flex-basis:280px;max-width:280px} }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+<div class="container-fluid py-3">
+  <!-- Barra superior -->
+ <!--  <div class="card">
+    <div class="row">
+      <button id="btnLogout" class="btn">Salir</button>
+      <div class="sep"></div>
+      <label>Edición
+      <select id="cbOlimpiada" style="min-width:220px"></select>
+      </label>
+       <button id="btnNuevaEdicion" class="btn">Nueva edición</button> 
+      <div class="grow"></div>
+      <span id="lblEstado" class="mut">OK</span>
+    </div>
+  </div> -->
+
+  <div class="card p-3 mb-3">
+  <div class="row g-2 align-items-center">
+
+    <div class="col-12 col-md-auto">
+      <button id="btnLogout" class="btn btn-outline-danger w-100">
+        Salir
+      </button>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <label class="form-label mb-0">Edición</label>
+      <select id="cbOlimpiada" class="form-select"></select>
+    </div>
+
+    <!-- <div class="col-12 col-md-auto">
+      <button id="btnNuevaEdicion" class="btn btn-primary w-100">
+        Nueva edición
+      </button>
+    </div> -->
+
+    <div class="col text-end">
+      <span id="lblEstado" class="text-muted">OK</span>
+    </div>
+
+  </div>
+</div>
+  <!-- Perfiles de Árbitros -->
+<div class="card p-3 mb-3 shadow-sm">
+  <h3>Perfiles de árbitros (por edición)</h3>
+
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <label>Árbitro</label>
+    <select id="arbitroSelect" class="form-select"></select>
+
+    <label>Disciplinas</label>
+    <select id="disciplinasArbitro" multiple size="6" style="min-width:220px;" class="form-select"></select>
+
+    <button id="guardarPermisos" class="btn btn-primary">Guardar permisos</button>
+  </div>
+
+  <small>Elegí un árbitro y marcá las disciplinas que podrá editar en esta edición.</small>
+</div>
+
+  <!-- Asociar equipos -->
+  <div class="card p-3 mb-3 shadow-sm">
+    <h2 class="title">Asociar equipos a disciplina</h2>
+    <div class="row g-3">
+      <label>Disciplina <select id="asigDisciplina" class="form-select"></select></label>
+      <span class="mut" id="asigInfo">Listo.</span>
+    </div>
+    <div class="sp"></div>
+    <div id="asigEquipos" class="grid cols-3"></div>
+    <div class="sp"></div>
+    <button id="btnGuardarAsig" class="btn btn-primary">Guardar asociación</button>
+  </div>
+
+  <!-- Generar llaves -->
+  <div class="card p-3 mb-3 shadow-sm" id="panelGenerar">
+    <h2 class="title">Generar Llaves por Disciplina</h2>
+    <div class="row g-3">
+      <label>Nombre de la llave <input id="brNombre" type="text" placeholder="Llave principal" class="form-control"/></label>
+      <label>Disciplina <select id="cbDisciplina"  class="form-select"></select></label>
+      <button class="btn btn-primary" id="btnReloadDisc">Recargar</button>
+      <span id="lblDisc" class="mut">OK</span>
+    </div>
+    <div class="sp"></div>
+    <div class="row g-3">
+      <div class="col-12 col-lg-4">
+        <div class="mut">Equipos asignados (click o doble click para agregar al orden)</div>
+        <select id="lbEquipos" size="10"  class="lb form-select"></select>
+      </div>
+      <div class="col-12 col-lg-8">
+        <div class="mut">Orden actual (por nombre):</div>
+        <div id="ordenBox"></div>
+        <div class="sp"></div>
+        <div class="row g-3">
+          <button id="btnLimpiarOrden" class="btn btn-primary">Limpiar orden</button>
+          <button id="btnGenerarLlaves" class="btn btn-primary">Generar llaves</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PODIO MANUAL -->
+<div id="podioManualBox" style="display:none; margin-top:16px; border:1px solid #ddd; border-radius:8px; padding:12px;">
+  <h3 id="podioTitle" style="margin-top:0;">Podio manual</h3>
+  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <div style="min-width:240px;">
+      <label>1° puesto</label>
+      <select id="podio1" class="form-select" ></select>
+    </div>
+    <div style="min-width:240px;">
+      <label>2° puesto</label>
+      <select id="podio2" class="form-select"></select>
+    </div>
+    <div style="min-width:240px;">
+      <label>3° puesto</label>
+      <select id="podio3" class="form-select"></select>
+    </div>
+  </div>
+  <button id="btnGuardarPodio" class="btn btn-primary" style="margin-top:12px;">Guardar podio</button>
+</div>
+
+
+  
+
+  <!-- Vista de bracket y programación -->
+  <div class="card p-3 mb-3 shadow-sm">
+    <h2 class="title">Vista de Bracket (árbol) + Programación</h2>
+    <div class="row g-3">
+      <label>Bracket ID <input id="bvBracketId" type="number" value="1" class="form-control"></label>
+      <label>Ronda <input id="bvRound" type="number" value="1" class="form-control"></label>
+      <label>Inicio <input id="bvStart" type="datetime-local" class="form-control"></label>
+      <label>Cada (min) <input id="bvEvery" type="number" value="45" class="form-control"></label>
+      <button id="btnProgramar" class="btn btn-primary">Programar ronda</button>
+      <button id="btnVerBracket" class="btn btn-primary">Ver bracket</button>
+    </div>
+    <div class="sp"></div>
+    <div id="bracketRounds">
+      <svg id="bracketLines"></svg>
+      <div class="rounds" id="roundsWrap"></div>
+    </div>
+    <div id="bracketRoundsPenales">
+      <svg id="bracketLinesPenales"></svg>
+      <div class="roundsPenales" id="roundsWrapPenales"></div>
+    </div>
+  </div>
+
+  <!-- Resultados -->
+  <div class="card p-3 mb-3 shadow-sm">
+    <h2 class="title">Resultados del Bracket</h2>
+    <div class="row g-3">
+      <label>Bracket ID <input id="rbBracketId" type="number" value="1" class="form-control"></label>
+      <button id="btnCargarPartidos" class="btn btn-primary">Cargar partidos</button>
+    </div>
+    <div class="sp"></div>
+    <div id="resList"></div>
+    <div class="sp"></div>
+    <div class="mut">
+      Usá <b>Guardar parcial</b> durante el juego (no afecta medallero).
+      Al terminar, <b>Guardar FINAL</b>. Si termina empatado, se habilitan <b>penales</b>.
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3 shadow-sm">
+  <h2 class="title">Tercer puesto (manual)</h2>
+  <div class="row g-3">
+    <label>Equipo
+      <select id="tpEquipo" class="form-select"></select>
+    </label>
+    <button id="btnTpCargar" class="btn btn-primary">Cargar equipos</button>
+    <button id="btnTpGuardar" class="btn btn-primary">Guardar 3º (suma 1 punto)</button>
+    <span class="mut">Usa el bracket actual (campo “Bracket ID” de arriba).</span>
+  </div>
+</div>
+
+
+
+
+
+
+
+  <!-- Medallero -->
+  <div class="card p-3 mb-3 shadow-sm">
+    <h2 class="title">Medallero (en vivo)</h2>
+    <div id="medallero"></div>
+
+    <!-- NUEVO: botón + leyenda -->
+  <div class="sp"></div>
+  <div class="row g-3">
+    <button id="btnFinalizar" class="btn btn-primary">Finalizar olimpiada</button>
+    <div id="finalMsg" class="mut"></div>
+  </div>
+  </div>
+</div>
+
+<script>
+//let USER = null;
+function isAdmin() {
+  try {
+    const t = localStorage.getItem('token');
+    if (!t) return false;
+    const p = JSON.parse(atob(t.split('.')[1]));
+    return p.role === 'admin';
+  } catch {
+    return false;
+  }
+}
+
+function getUserFromToken() {
+  const t = getToken();
+  if (!t) return null;
+  try {
+    return JSON.parse(atob(t.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
+
+/*const CURRENT_USER = getUserFromToken();
+const IS_ADMIN = CURRENT_USER?.role === 'admin';
+const IS_ARBITRO = CURRENT_USER?.role === 'arbitro';*/
+/* --- CONTROL DE ACCESO UNIFICADO (Sustituye lo anterior) --- */
+const getToken = () => localStorage.getItem('token');
+const getPayload = () => {
+    try {
+        const t = getToken();
+        return t ? JSON.parse(atob(t.split('.')[1])) : null;
+    } catch (e) { return null; }
+};
+
+const USER_DATA = getPayload();
+// Estandarizamos a 'role' (lo que viene del JWT)
+const ROLE = USER_DATA?.role || localStorage.getItem('role'); 
+const IS_ADMIN = ROLE === 'admin';
+const IS_ARBITRO = ROLE === 'arbitro';
+
+/**
+ * Función Maestra de Limpieza
+ * Borra secciones de administración si el usuario no es admin
+ */
+function aplicarSeguridadUI() {
+    if (IS_ADMIN) return; // Si es admin, no tocamos nada
+
+    console.log("Restringiendo interfaz para el rol:", ROLE);
+
+    // Ids exactos de tu HTML que el árbitro no debe ver
+    const prohibidos = [
+        '#panelGenerar',      // Sección generar llaves
+        '#arbitroSelect',     // Perfiles de árbitros
+        '#asigDisciplina',    // Asociar equipos a disciplina
+        '#btnFinalizar',      // Botón terminar
+        '#btnLimpiarTodo',    // Botón reset
+        '#btnNuevaEdicion'    // Crear olimpiadas
+    ];
+
+    prohibidos.forEach(selector => {
+        const el = document.querySelector(selector);
+        if (el) {
+            // Borramos la card completa (el recuadro blanco) para que no quede el hueco
+            const container = el.closest('.card') || el;
+            container.remove();
+        }
+    });
+
+    // Ocultar IDs de bracket en los modales para que el árbitro no se confunda
+    document.querySelectorAll('#bvBracketId, #rbBracketId').forEach(input => {
+        const label = input.closest('label') || input;
+        label.style.display = 'none';
+    });
+
+    // Si es árbitro, intentamos cargar su disciplina automáticamente
+    if (IS_ARBITRO) configurarAutoSeleccionArbitro();
+}
+
+/**
+ * Lógica para que el árbitro entre directo a su deporte
+ */
+async function configurarAutoSeleccionArbitro() {
+    try {
+        const oid = localStorage.getItem('olimpiada_id');
+        const res = await fetch(`${location.origin}/api/arbitros/mi-contexto`, {
+            headers: { 'Authorization': `Bearer ${getToken()}`, 'X-Olimpiada-Id': oid }
+        });
+        const contexto = await res.json();
+        
+        if (contexto.disciplinas?.length > 0) {
+            const select = document.getElementById('disciplinaSelect');
+            if (select) {
+                select.value = contexto.disciplinas[0].id;
+                select.dispatchEvent(new Event('change')); // Dispara la carga del bracket
+                // Opcional: select.disabled = true; // Descomenta si quieres que NO pueda cambiar de deporte
+            }
+        }
+    } catch (e) { console.error("Error contexto árbitro:", e); }
+}
+
+/* --- INICIALIZACIÓN --- */
+document.addEventListener('DOMContentLoaded', () => {
+    if (!getToken()) { window.location.href = 'login.html'; return; }
+    
+    // 1. Aplicamos seguridad primero
+    aplicarSeguridadUI();
+    
+    // 2. Cargamos los datos normales (tus funciones originales)
+    if (typeof cargarDisciplinas === 'function') cargarDisciplinas();
+    if (typeof cargarEdiciones === 'function') cargarEdiciones(); 
+});
+
+function aplicarVistaPorRol() {
+  if (IS_ADMIN) return;
+
+  // Árbitro: ocultar todo lo que no corresponde
+  const ocultarIds = [
+    '#panelGenerar',              // generar llaves
+    '#btnNuevaEdicion',
+    '#asigEquipos',
+    '#btnGuardarAsig',
+    '#asigDisciplina',
+    '#arbitroSelect',
+    '#disciplinasArbitro',
+    '#guardarPermisos'
+  ];
+
+  ocultarIds.forEach(sel => {
+    const el = document.querySelector(sel);
+    if (el) el.closest('.card') ? el.closest('.card').style.display = 'none' : el.style.display = 'none';
+  });
+}
+
+
+/* ===== Utils / Auth / Fetch ===== */
+const BASE = location.origin;
+function q(s){return document.querySelector(s)}
+function ce(t,c){const el=document.createElement(t); if(c) el.className=c; return el;}
+function nowQS(){return `_=${Date.now()}`}
+function getToken(){return localStorage.getItem('token')||''}
+function requireAuthOrRedirect(){const t=getToken(); if(!t){location.href='login.html'; return null} return t}
+//function getHeaders(extra={}){const t=getToken(); return Object.assign({'Content-Type':'application/json','Cache-Control':'no-store','Pragma':'no-cache'}, t?{'Authorization':'Bearer '+t}:{}, extra)}
+async function jfetch(url,opts={}){const u=url+(url.includes('?')?'&':'?')+nowQS(); const o=Object.assign({cache:'no-store',headers:getHeaders()},opts); const r=await fetch(u,o); if(!r.ok){let t='';try{t=await r.text()}catch{}; throw new Error(t||`HTTP ${r.status}`)} try{return await r.json()}catch{return{}}}
+function toast(msg,cls='mut'){const el=ce('span',cls); el.id='lblEstado'; el.textContent=msg; q('#lblEstado').replaceWith(el); setTimeout(()=>{el.className='mut'; el.textContent='OK'},2500)}
+
+/* ===== Inicio + Logout + Sockets ===== */
+const token=requireAuthOrRedirect();
+q('#btnLogout').onclick=()=>{localStorage.removeItem('token'); location.href='login.html'}
+let socket;
+try{
+  socket=io(BASE,{transports:['websocket'],path:'/socket.io/'});
+  socket.on('partido_updated', async ({bracket_id})=>{
+    //const cur=Number(q('#bvBracketId').value||0);
+    const cur = await getCurrentBracketId();
+    if(bracket_id && cur===bracket_id){ await Promise.all([loadRounds(cur),loadResultados(cur)]) }
+  });
+  socket.on('medallero_changed', loadMedallero);
+}catch{}
+
+/* ===== Disciplinas / Equipos ===== */
+q('#btnReloadDisc').onclick=cargarDisciplinas;
+q('#cbDisciplina').onchange=()=>{cargarEquiposPorDisciplina(); limpiarOrden()};
+q('#asigDisciplina').onchange=cargarAsociaciones;
+
+async function cargarDisciplinas(){
+   // 🚧 si no hay edición, intentá cargarla; si sigue sin haber, abortá
+  if (!getOlimpiadaId()) {
+    await loadOlimpiadas();
+    if (!getOlimpiadaId()) { 
+      toast('Elegí o creá una edición primero', 'warn'); 
+      return; 
+    }
+  }
+  const d=await jfetch(`${BASE}/api/disciplinas`);
+  const s1=q('#cbDisciplina'), s2=q('#asigDisciplina'); s1.innerHTML=''; s2.innerHTML='';
+  d.forEach(x=>{const o1=ce('option');o1.value=x.id;o1.textContent=x.nombre;s1.appendChild(o1);
+                const o2=ce('option');o2.value=x.id;o2.textContent=x.nombre;s2.appendChild(o2)});
+  q('#lblDisc').textContent=`Disciplinas: ${d.length}`;
+  if(d.length){ await Promise.all([cargarEquiposPorDisciplina(),cargarAsociaciones()]) }
+}
+async function cargarEquiposPorDisciplina(){
+  const id=Number(q('#cbDisciplina').value||0); const lb=q('#lbEquipos'); lb.innerHTML=''; if(!id) return;
+  const eq=await jfetch(`${BASE}/api/equipos?disciplina_id=${id}`);
+  eq.forEach(e=>{const o=ce('option'); o.value=e.id; o.textContent=e.nombre; lb.appendChild(o)});
+  lb.onchange=()=>{if(lb.value) addOrden(parseInt(lb.value,10), lb.options[lb.selectedIndex].text)}
+  lb.ondblclick=lb.onchange;
+}
+async function cargarAsociaciones(){
+  const id=Number(q('#asigDisciplina').value||0); const box=q('#asigEquipos'); box.innerHTML=''; if(!id) return;
+  const todos=await jfetch(`${BASE}/api/equipos`); const asign=await jfetch(`${BASE}/api/asignados?disciplina_id=${id}`);
+  const set=new Set((asign||[]).map(x=>x.equipo_id||x.id));
+  todos.forEach(e=>{const lab=ce('label','pill'); const cb=ce('input'); cb.type='checkbox'; cb.value=e.id; cb.checked=set.has(e.id); lab.append(cb,document.createTextNode(' '+e.nombre)); box.appendChild(lab)});
+  q('#asigInfo').textContent=`Equipos: ${todos.length} | Asignados: ${set.size}`;
+}
+q('#btnGuardarAsig').onclick=async ()=>{
+  const id=Number(q('#asigDisciplina').value||0); if(!id) return alert('Elegí una disciplina');
+  const checks=[...q('#asigEquipos').querySelectorAll('input[type=checkbox]')];
+  const sel=checks.filter(c=>c.checked).map(c=>parseInt(c.value,10));
+  await jfetch(`${BASE}/api/asignar_equipos`,{method:'POST',headers:getHeaders(),body:JSON.stringify({disciplina_id:id, equipo_ids:sel})});
+  toast('Asociación guardada','ok'); if(Number(q('#cbDisciplina').value)===id) await cargarEquiposPorDisciplina();
+}
+
+/* ===== Orden de sorteo ===== */
+let orden=[]; const ordenBox=q('#ordenBox');
+function renderOrden(){ ordenBox.innerHTML=''; orden.forEach((o,i)=>{const ch=ce('div','chip'); ch.dataset.id=o.id; ch.innerHTML=`<b>${i+1}. ${o.nombre}</b>`; const up=ce('span','a'); up.textContent='↑'; const dn=ce('span','a'); dn.textContent='↓'; const rm=ce('span','a'); rm.textContent='×';
+  up.onclick=()=>{ if(i>0){[orden[i-1],orden[i]]=[orden[i],orden[i-1]]; renderOrden()}};
+  dn.onclick=()=>{ if(i<orden.length-1){[orden[i+1],orden[i]]=[orden[i],orden[i+1]]; renderOrden()}};
+  rm.onclick=()=>{ orden.splice(i,1); renderOrden() };
+  ch.append(up,dn,rm); ordenBox.appendChild(ch);
+})}
+function addOrden(id,nombre){ if(orden.some(x=>x.id===id)) return; orden.push({id,nombre}); renderOrden() }
+function limpiarOrden(){ orden=[]; renderOrden() }
+q('#btnLimpiarOrden').onclick=limpiarOrden;
+
+/* ===== Generar llaves ===== */
+q('#btnGenerarLlaves').onclick=async ()=>{
+  const nombre=(q('#brNombre').value||'Llave').trim();
+  const disciplina_id=Number(q('#cbDisciplina').value||0);
+  const equipo_ids_en_orden=orden.map(x=>x.id);
+  if (IS_ADMIN && !disciplina_id) {
+  alert('Elegí una disciplina');
+  return;
+}
+  if(equipo_ids_en_orden.length<3) return alert('Al menos 3 equipos');
+  try{
+    const r=await jfetch(`${BASE}/api/brackets/generate`,{method:'POST',headers:getHeaders(),body:JSON.stringify({disciplina_id,nombre,equipo_ids_en_orden})});
+    const bid=r.bracketId||r.bracket_id||r.id; if(!bid){alert('Llaves generadas, pero no llegó el ID'); return}
+    q('#bvBracketId').value=bid; q('#rbBracketId').value=bid; toast(`Llaves generadas. Bracket #${bid}`,'ok');
+    await Promise.all([loadRounds(bid),loadResultados(bid)])
+  }catch(e){
+ let obj;
+    try { obj = JSON.parse(String(e.message)); } catch {}
+    // >>>> NUEVO: si el backend respondió 409 con manual_podium, muestro el podio manual
+    if (obj?.manual_podium) {
+      showPodioManual(obj);   // usa el showPodioManual de “podioManualBox”
+      return;
+    }
+    if (obj?.detalle?.notAssigned) {
+      alert(`Equipos no asignados: ${obj.detalle.notAssigned.join(', ')}`);
+    } else {
+      alert(`Error generando: ${obj?.error || e.message}`);
+    } 
+   }
+};
+
+/* ===== Ver / Programar ===== */
+//q('#btnVerBracket').onclick=async ()=>{const id=Number(q('#bvBracketId').value||0); if(!id) return; await Promise.all([loadRounds(id),loadResultados(id),loadMedallero()])}
+
+q('#btnVerBracket').onclick = async () => {
+
+  let bracketId = 0;
+
+  if (isAdmin()) {
+    bracketId = getCurrentBracketId();
+  } else {
+    // 🔥 árbitro: automático
+    bracketId = await getCurrentBracketId();
+  }
+
+  if (!bracketId) return;
+
+  setCurrentBracketId(bracketId);
+
+  await Promise.all([
+    loadRounds(bracketId),
+    loadResultados(bracketId),
+    loadMedallero()
+  ]);
+};
+
+
+q('#btnProgramar').onclick=programarRonda;
+async function programarRonda(){
+  if (!isAdmin()) {
+    alert('Solo el administrador puede programar rondas');
+    return;
+  }
+  const bracket_id = getCurrentBracketId();
+  const round=Number(q('#bvRound').value||0);
+  const interval_minutes=Number(q('#bvEvery').value||0);
+  const start_datetime=q('#bvStart').value;
+  if(!bracket_id||!round||!interval_minutes||!start_datetime) return alert('Completá todos los campos');
+  await jfetch(`${BASE}/api/brackets/schedule`,{method:'POST',headers:getHeaders(),body:JSON.stringify({bracket_id,round,start_datetime,interval_minutes})});
+  await loadRounds(bracket_id); toast('Ronda programada','ok');
+}
+
+/* ===== Bracket (árbol) – sin “cuadros vacíos” extras ===== */
+async function loadRounds(bracketId){
+  const data = await jfetch(`${BASE}/api/brackets/${bracketId}/rounds`);
+
+  const wrap = document.getElementById('roundsWrap');
+  const lines = document.getElementById('bracketLines');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  if (lines) lines.replaceChildren();
+
+  const rounds = Object.keys(data||{}).map(n=>+n).sort((a,b)=>a-b);
+  if (!rounds.length){
+    wrap.innerHTML = '<div class="mut">Sin partidos</div>';
+    return;
+  }
+
+  // destinoPorRonda[r] = Set de ids de partidos en r que reciben ganadores de r-1
+  const destinoPorRonda = {};
+  for (let i=1;i<rounds.length;i++){
+    const prev = data[rounds[i-1]] || [];
+    const set  = new Set(prev.map(m=>m.next_match_id).filter(Boolean));
+    destinoPorRonda[rounds[i]] = set;
+  }
+
+  const showable = (m, rn)=>{
+    const hasTeam = (m.equipo1_id || m.equipo2_id);
+    if (hasTeam) return true;
+    // si no tiene equipos, sólo se muestra si es destino real de la ronda anterior
+    if (destinoPorRonda[rn]?.has(m.id)) return true;
+    // si tiene algún dato (parcial/final) también se muestra
+    const hasInfo = (m.s1!=null && m.s2!=null) ||
+                    (m.parcial_equipo1!=null || m.parcial_equipo2!=null) ||
+                    (m.estado && m.estado!=='pendiente');
+    return !!hasInfo;
+  };
+
+  rounds.forEach((rn, idx)=>{
+    const col = document.createElement('div');
+    col.className = 'round-col';
+    col.innerHTML = `<div class="round-title">Ronda ${rn}</div>`;
+
+    (data[rn]||[])
+      .filter(m => showable(m, rn))
+      .forEach(m=>{
+        const t1 = m.n1 || '—';
+        const t2 = m.n2 || '—';
+        const sFinal = (m.s1!=null && m.s2!=null) ? `${m.s1}–${m.s2}` : '';
+        const sPar   = (m.parcial_equipo1!=null || m.parcial_equipo2!=null)
+                        ? `${m.parcial_equipo1 ?? 0}–${m.parcial_equipo2 ?? 0}` : '';
+        const fecha  = m.fecha ? new Date(m.fecha).toLocaleString() : 'Sin horario';
+        const penPar = (m.pen_parcial1!=null || m.pen_parcial2!=null)
+                        ? `Penales Parcial: ${m.pen_parcial1 ?? 0}–${m.pen_parcial2 ?? 0}` : '';
+        const penFin = (m.penales_equipo1!=null || m.penales_equipo2!=null)
+                        ? `Penales Final: ${m.penales_equipo1 ?? 0}–${m.penales_equipo2 ?? 0}` : '';
+
+        // Etiqueta principal de tiempo regular
+        // (si hay final -> "Final: sFinal", si no -> "Parcial: sPar", si tampoco -> "")
+        let regularLabel = '';
+        if (sFinal) regularLabel = `Final: ${sFinal}`;
+        else if (sPar) regularLabel = `Parcial: ${sPar}`;
+
+        // === NUEVA LÓGICA DE COMBINACIÓN ===
+        // - Si el partido está en estado 'penales':
+        //     * Si ya hay penales finales -> mostrar penFin junto a regularLabel (si hay).
+        //     * Si NO hay penales finales pero hay parciales -> mostrar penPar junto a regularLabel (si hay).
+        // - Si NO está en 'penales':
+        //     * Si hay penales finales -> igual mostramos penFin (ej: un partido ya definido por penales).
+        let combined = regularLabel;
+        if (m.estado === 'penales') {
+          if (penFin) combined = combined ? `${combined} • ${penFin}` : penFin;
+          else if (penPar) combined = combined ? `${combined} • ${penPar}` : penPar;
+        } else {
+          if (penFin) combined = combined ? `${combined} • ${penFin}` : penFin;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'match-card';
+        card.id = `match-${m.id}`;
+        if (m.next_match_id) card.dataset.next = `match-${m.next_match_id}`;
+        if (idx === rounds.length-1 && (m.equipo1_id || m.equipo2_id)) card.classList.add('final');
+
+        /* card.innerHTML = `
+          <div><b>${t1}</b></div>
+          <div><b>${t2}</b></div>
+          <div class="small">${fecha} [${m.estado||'pendiente'}]</div>
+          ${sFinal ? `<div class="small">Final: ${sFinal}${penFin?` • ${penFin}`:''}</div>`
+                   : (sPar ? `<div class="small">Parcial: ${sPar}${penPar?` • ${penPar}`:''}</div>` : '')}
+        `; */
+        card.innerHTML = `
+        <div><b>${t1}</b></div>
+        <div><b>${t2}</b></div>
+        <div class="small">${fecha} [${m.estado||'pendiente'}]</div>
+        ${ combined ? `<div class="small">${combined}</div>` : '' }
+      `;
+        col.appendChild(card);
+      });
+
+    wrap.appendChild(col);
+  });
+
+  // si usás conectores con SVG
+  if (typeof drawConnectors==='function') setTimeout(drawConnectors, 30);
+}
+
+
+/* ===== Resultados (parcial / final / penales) ===== */
+/* q('#btnCargarPartidos').onclick=async ()=>{
+  
+  const id = Number(q('#rbBracketId').value||0); if(!id) return;
+  q('#bvBracketId').value = id;
+  setCurrentBracketId(id);                 // <— NUEVO
+  await Promise.all([loadRounds(id), loadResultados(id)]);
+
+}; */
+
+q('#btnCargarPartidos').onclick = async () => {
+
+  let bid;
+
+  if (isAdmin()) {
+    bid = getCurrentBracketId();
+  } else {
+    bid = await getCurrentBracketId();
+  }
+
+  if (!bid) return;
+
+  setCurrentBracketId(bid);
+
+  await Promise.all([
+    loadRounds(bid),
+    loadResultados(bid)
+  ]);
+};
+
+
+
+// Ejecuta una acción de red con UX consistente (deshabilita botón, muestra errores del backend)
+async function runAction(btn, action, after = async ()=>{}) {
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+  try {
+    await action();
+    await after(); // típicamente refrescar UI
+  } catch (e) {
+    // Intentar mostrar el mensaje JSON que envía el backend: { error: '...' }
+    let msg = String(e.message || e);
+    try {
+      const parsed = JSON.parse(msg);
+      if (parsed && parsed.error) msg = parsed.error;
+    } catch {}
+    alert(msg);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+
+
+async function loadResultados(bracketId){
+  const data = await jfetch(`${BASE}/api/brackets/${bracketId}/rounds`);
+  const list = document.getElementById('resList');
+  list.innerHTML = '';
+
+  const rounds = Object.keys(data || {}).map(n => +n).sort((a,b)=>a-b);
+  if (!rounds.length){
+    list.innerHTML = '<div class="mut">Sin partidos</div>';
+    return;
+  }
+
+  rounds.forEach(rn => {
+    (data[rn] || []).forEach(m => {
+      // Sólo partidos reales (al menos un equipo)
+      if (!m.equipo1_id && !m.equipo2_id) return;
+
+      const row  = document.createElement('div'); row.className = 'row';
+      const lab  = document.createElement('div'); lab.style.minWidth='360px';
+      lab.textContent = `#${m.id} (R${m.round}) ${m.n1||'—'} — ${m.n2||'—'} [${m.estado||'pendiente'}]`;
+
+      const s1 = document.createElement('input'); s1.type='number'; s1.className='score';
+      const s2 = document.createElement('input'); s2.type='number'; s2.className='score';
+      // final > parcial > 0
+      s1.value = (m.s1 != null) ? m.s1 : (m.parcial_equipo1 ?? 0);
+      s2.value = (m.s2 != null) ? m.s2 : (m.parcial_equipo2 ?? 0);
+
+      // ===== Tiempo regular =====
+      const bPar = document.createElement('button'); bPar.className='btn'; bPar.textContent='Guardar parcial';
+      bPar.onclick = () => runAction(
+        bPar,
+        async ()=> {
+          await jfetch(`${BASE}/api/partidos/${m.id}/parcial`, {
+            method:'POST', headers:getHeaders(),
+            body: JSON.stringify({
+              parcial_equipo1: Number(s1.value||0),
+              parcial_equipo2: Number(s2.value||0)
+            })
+          });
+        },
+        async ()=> { await Promise.all([ loadRounds(bracketId), loadResultados(bracketId) ]) }
+      );
+
+/*       const bFin = document.createElement('button'); bFin.className='btn'; bFin.textContent='Guardar FINAL';
+      bFin.onclick = () => runAction(
+        bFin,
+        async ()=> {
+          await jfetch(`${BASE}/api/partidos/${m.id}/final`, {
+            method:'POST', headers:getHeaders(),
+            body: JSON.stringify({
+              puntaje_equipo1: Number(s1.value||0),
+              puntaje_equipo2: Number(s2.value||0)
+            })
+          });
+        },
+        async ()=> { await Promise.all([ loadRounds(bracketId), loadResultados(bracketId), loadMedallero() ]) }
+      ); */
+
+            const bFin = document.createElement('button'); 
+      bFin.className = 'btn'; 
+      bFin.textContent = 'Guardar FINAL';
+
+      bFin.onclick = () => runAction(
+        bFin,
+        async ()=> {
+          const v1 = Number(s1.value || 0);
+          const v2 = Number(s2.value || 0);
+
+          // Si hay empate en tiempo regular, pasamos a estado "penales"
+          if (v1 === v2) {
+            await jfetch(`${BASE}/api/partidos/${m.id}/penales/parcial`, {
+              method: 'POST',
+              headers: getHeaders(),
+              // p1/p2 pueden ir null: solo marcamos estado='penales'
+              body: JSON.stringify({ p1: null, p2: null })
+            });
+            return; // no llamamos a /final
+          }
+
+          // Si NO hay empate, cerramos el partido normalmente
+          await jfetch(`${BASE}/api/partidos/${m.id}/final`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({
+              puntaje_equipo1: v1,
+              puntaje_equipo2: v2
+            })
+          });
+        },
+        async ()=> { 
+          await Promise.all([
+            loadRounds(bracketId), 
+            loadResultados(bracketId), 
+            loadMedallero()
+          ]); 
+        }
+      );
+
+
+      row.append(lab, s1); const dash = document.createElement('div'); dash.textContent='—';
+      row.append(dash, s2, bPar, bFin);
+
+      // ===== Penales (misma UX que arriba) =====
+      // ===== Penales (misma UX que arriba) =====
+const finalEmpatado = (m.s1 != null && m.s2 != null && Number(m.s1) === Number(m.s2));
+const enPenales    = (m.estado === 'penales');
+const yaPorPenales = !!m.definido_por_penales;
+
+if (finalEmpatado || enPenales || yaPorPenales) {
+  const sep = document.createElement('div'); sep.className='sep'; sep.textContent='|';
+
+  const p1 = document.createElement('input'); p1.type='number'; p1.className='score'; p1.placeholder='P1';
+  const p2 = document.createElement('input'); p2.type='number'; p2.className='score'; p2.placeholder='P2';
+  // prefill con lo que haya (parcial de penales > penales finales)
+  p1.value = (m.pen_parcial1 ?? m.penales_equipo1 ?? '');
+  p2.value = (m.pen_parcial2 ?? m.penales_equipo2 ?? '');
+
+  const guion2 = document.createElement('div'); guion2.textContent='—';
+
+  // -- botón Penales (parcial) --
+  const bPenPar = document.createElement('button');
+  bPenPar.className='btn';
+  bPenPar.textContent='Penales (parcial)';
+
+  bPenPar.onclick = () => runAction(
+    bPenPar,
+    async () => {
+      const v1 = (p1.value === '' ? null : Number(p1.value));
+      const v2 = (p2.value === '' ? null : Number(p2.value));
+      await jfetch(`${BASE}/api/partidos/${m.id}/penales/parcial`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ p1: v1, p2: v2 })
+      });
+    },
+    async () => {
+      const bid = await getCurrentBracketId();
+      if (bid) {
+        await Promise.all([
+          loadRounds(bid),
+          loadResultados(bid),
+          loadMedallero()
+        ]);
+      }
+    }
+  );
+
+  // -- botón Penales (FINAL) --
+  const bPenFin = document.createElement('button');
+  bPenFin.className='btn';
+  bPenFin.textContent='Penales (FINAL)';
+
+  bPenFin.onclick = () => runAction(
+    bPenFin,
+    async () => {
+      const v1 = (p1.value === '' ? null : Number(p1.value));
+      const v2 = (p2.value === '' ? null : Number(p2.value));
+      if (v1==null || v2==null) throw new Error('Ingresá ambos valores de penales');
+      if (v1 === v2) throw new Error('Los penales no pueden terminar empatados');
+
+      await jfetch(`${BASE}/api/partidos/${m.id}/penales/final`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ p1: v1, p2: v2 })
+      });
+    },
+    async () => {
+      const bid = await getCurrentBracketId();
+      if (bid) {
+        // colchón corto para que el SELECT vea el commit
+        await new Promise(r => setTimeout(r, 120));
+        await Promise.all([
+          loadRounds(bid),
+          loadResultados(bid),
+          loadMedallero()
+        ]);
+      }
+    }
+  );
+
+  // agregar controles a la fila
+  row.append(sep, p1, guion2, p2, bPenPar, bPenFin);
+}
+
+ list.appendChild(row);
+});         // <-- cierra el forEach(m => { ... })
+});         // <-- cierra el forEach(rn => { ... })
+}           // <-- cierra function loadResultados
+
+// cache del medallero actual
+let _medalleroCache = [];
+
+/* ===== Medallero ===== */
+async function loadMedallero(){
+  const oid = getOlimpiadaId();
+  if (!oid) return;  
+  const data=await jfetch(`${BASE}/api/medallero`);
+  _medalleroCache = Array.isArray(data) ? data : [];
+  const cont=q('#medallero'); cont.innerHTML='';
+  const table=ce('table'); table.innerHTML='<thead><tr><th>Provincia</th><th>Puntos</th><th>Descripcion</th></tr></thead>';
+  const tb=ce('tbody');
+  (_medalleroCache||[]).forEach(r=>{const tr=ce('tr'); tr.innerHTML=`<td>${r.sucursal}</td><td>${r.puntos}</td><td>${r.detalle}</td>`; tb.appendChild(tr)});
+  table.appendChild(tb); cont.appendChild(table);
+} 
+
+// NUEVO: botón "Finalizar olimpiada"
+/* q('#btnFinalizar').onclick = async ()=>{
+  try{
+    // si aún no hay datos, recargo
+    if(!_medalleroCache.length) await loadMedallero();
+
+    if(!_medalleroCache.length){
+      q('#finalMsg').textContent = 'No hay datos de medallero.';
+      return;
+    }
+
+    // máximo puntaje
+    const max = Math.max(..._medalleroCache.map(x=>Number(x.puntos)||0));
+    const tops = _medalleroCache.filter(x=>(Number(x.puntos)||0) === max).map(x=>x.sucursal);
+
+    // armo el mensaje (contemplo empate)
+    const leyenda = (tops.length === 1)
+      ? `Campeón Copa Challenger: ${tops[0]}`
+      : `Campeón Copa Challenger (empate): ${tops.join(' — ')}`;
+
+    // muestro
+    const msgEl = q('#finalMsg');
+    msgEl.className = 'ok';
+    msgEl.textContent = leyenda;
+  }catch(e){
+    q('#finalMsg').className = 'err';
+    q('#finalMsg').textContent = 'Error al calcular campeón';
+  }
+}; */
+
+q('#btnFinalizar').onclick = async () => {
+  try {
+    // Realiza la solicitud POST al endpoint para finalizar la olimpiada
+    const response = await jfetch(`${BASE}/api/olimpiada/finalizar`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+
+    // Actualiza el mensaje en la UI con los datos devueltos por el backend
+    const msgEl = q('#finalMsg');
+    if (response.finalizado) {
+      msgEl.className = 'ok';
+      msgEl.textContent = (response.tops.length > 1)
+        ? `Campeón Copa Challenger (empate): ${response.tops.join(' — ')} (${response.puntos} puntos)`
+        : `Campeón Copa Challenger: ${response.tops[0] || '(sin datos)'} (${response.puntos} puntos)`;
+    } else {
+      msgEl.className = 'mut';
+      msgEl.textContent = 'Olimpiada no finalizada.';
+    }
+  } catch (e) {
+    q('#finalMsg').className = 'err';
+    q('#finalMsg').textContent = 'Error al finalizar la olimpiada: ' + (e.message || 'Desconocido');
+  }
+};
+
+/* ===== Conectores SVG ===== */
+function debounce(fn,ms=120){let t; return(...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a),ms)}}
+function drawConnectors(){
+  const wrap=q('#bracketRounds'), rounds=q('#roundsWrap'), svg=q('#bracketLines');
+  if(!wrap||!rounds||!svg) return;
+  const contentW=rounds.scrollWidth, contentH=rounds.scrollHeight;
+  svg.setAttribute('width',contentW); svg.setAttribute('height',contentH);
+  svg.setAttribute('viewBox',`0 0 ${contentW} ${contentH}`);
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const rRect=rounds.getBoundingClientRect();
+  const scrollLeft=wrap.scrollLeft, scrollTop=wrap.scrollTop;
+
+  document.querySelectorAll('.match-card[data-next]').forEach(el=>{
+    const targetId=el.dataset.next, trg=document.getElementById(targetId);
+    if(!trg) return;
+    const a=el.getBoundingClientRect(), b=trg.getBoundingClientRect();
+    const ax=a.right - rRect.left + scrollLeft, ay=a.top + a.height/2 - rRect.top + scrollTop;
+    const bx=b.left  - rRect.left + scrollLeft, by=b.top + b.height/2  - rRect.top + scrollTop;
+    const midx=(ax+bx)/2;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M ${ax} ${ay} C ${midx} ${ay}, ${midx} ${by}, ${bx} ${by}`);
+    path.setAttribute('stroke','#9CA3AF'); path.setAttribute('stroke-width','2'); path.setAttribute('fill','none');
+    svg.appendChild(path);
+  });
+
+  const wrapp=q('#bracketRoundsPenales'), roundsp=q('#roundsWrapPenales'), svgp=q('#bracketLinesPenales');
+  if(!wrapp||!roundsp||!svgp) return;
+  const contentWp=roundsp.scrollWidth, contentHp=roundsp.scrollHeight;
+  svgp.setAttribute('width',contentWp); svgp.setAttribute('height',contentHp);
+  svgp.setAttribute('viewBox',`0 0 ${contentWp} ${contentHp}`);
+  while(svgp.firstChild) svgp.removeChild(svgp.firstChild);
+
+  const rRectp=roundsp.getBoundingClientRect();
+  const scrollLeftp=wrapp.scrollLeft, scrollTopp=wrapp.scrollTop;
+
+  document.querySelectorAll('.match-card[data-next]').forEach(el=>{
+    const targetIdp=el.dataset.next, trgp=document.getElementById(targetIdp);
+    if(!trgp) return;
+    const ap=el.getBoundingClientRect(), b=trgp.getBoundingClientRect();
+    const axp=ap.right - rRect.left + scrollLeft, ayp=ap.top + ap.height/2 - rRect.top + scrollTop;
+    const bxp=b.left  - rRect.left + scrollLeft, byp=b.top + b.height/2  - rRect.top + scrollTop;
+    const midxp=(axp+bxp)/2;
+    const pathp=document.createElementNS('http://www.w3.org/2000/svg','path');
+    pathp.setAttribute('d',`M ${axp} ${ayp} C ${midxp} ${ayp}, ${midxp} ${byp}, ${bxp} ${byp}`);
+    pathp.setAttribute('stroke','#9CA3AF'); pathp.setAttribute('stroke-width','2'); pathp.setAttribute('fill','none');
+    svgp.appendChild(pathp);
+  });
+
+}
+window.addEventListener('resize',debounce(drawConnectors,150));
+document.getElementById('bracketRounds')?.addEventListener('scroll',debounce(drawConnectors,10),{passive:true});
+const roundsObserver=new MutationObserver(debounce(drawConnectors,30));
+document.getElementById('roundsWrap') && roundsObserver.observe(document.getElementById('roundsWrap'),{childList:true,subtree:true});
+
+window.addEventListener('resize',debounce(drawConnectors,150));
+document.getElementById('bracketRoundsPenales')?.addEventListener('scroll',debounce(drawConnectors,10),{passive:true});
+const roundsObserverp=new MutationObserver(debounce(drawConnectors,30));
+document.getElementById('roundsWrapPenales') && roundsObserverp.observe(document.getElementById('roundsWrapPenales'),{childList:true,subtree:true});
+
+/* ===== Auto-carga ===== */
+//(async ()=>{ await cargarDisciplinas(); const id=Number(q('#bvBracketId').value||0); if(id){ await Promise.all([loadRounds(id),loadResultados(id),loadMedallero()]) }})();
+
+// Sincronizar el ID por comodidad
+/* (function syncThirdPlaceIds(){
+  const rb = document.getElementById('rbBracketId');
+  const bv = document.getElementById('bvBracketId');
+  const tp = document.getElementById('tpBracketId');
+  if (rb && tp) rb.addEventListener('input', ()=> tp.value = rb.value);
+  if (bv && tp) bv.addEventListener('input', ()=> tp.value = bv.value);
+  if (tp && rb) tp.addEventListener('input', ()=> { rb.value = tp.value; bv.value = tp.value; });
+})(); */
+
+/* async function loadTercerPuestoEquipos(){
+  const bid = Number(document.getElementById('tpBracketId').value||0);
+  if (!bid) return alert('Indicá un Bracket ID');
+  const sel = document.getElementById('tpEquipo');
+  sel.innerHTML = '';
+  const eqs = await jfetch(`${BASE}/api/brackets/${bid}/equipos`);
+  eqs.forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.id;
+    o.textContent = e.nombre;
+    sel.appendChild(o);
+  });
+  if (!eqs.length){
+    const o = document.createElement('option');
+    o.value = '';
+    o.textContent = '(sin equipos en el bracket)';
+    sel.appendChild(o);
+  }
+} */
+
+/* async function guardarTercerPuesto(){
+  const bid = Number(document.getElementById('tpBracketId').value||0);
+  const equipo_id = Number(document.getElementById('tpEquipo').value||0);
+  if (!bid || !equipo_id) return alert('Elegí Bracket y Equipo');
+  await jfetch(`${BASE}/api/brackets/${bid}/tercero`, {
+    method:'POST', headers:getHeaders(),
+    body: JSON.stringify({ equipo_id })
+  });
+  toast('Tercer puesto guardado','ok');
+  await loadMedallero();
+} */
+
+//document.getElementById('btnLoadTP').onclick   = loadTercerPuestoEquipos;
+//document.getElementById('btnGuardarTP').onclick = guardarTercerPuesto;
+
+// Auto-cargar el select cuando toques "Ver bracket" o "Cargar partidos"
+/* const hookTP = async () => {
+  const bid = Number(document.getElementById('bvBracketId').value||0);
+  document.getElementById('tpBracketId').value = bid || '';
+  await loadTercerPuestoEquipos();
+}; */
+
+//document.getElementById('btnVerBracket').addEventListener('click', hookTP);
+//document.getElementById('btnCargarPartidos').addEventListener('click', hookTP);
+
+
+</script>
+
+<script>
+async function tpLoadEquipos(){
+  const bid = await getCurrentBracketId();
+  if (!bid) {
+    alert('No hay bracket disponible para tu disciplina');
+    return;
+  }
+
+  const sel = document.getElementById('tpEquipo');
+  sel.innerHTML = '';
+
+  const equipos = await jfetch(`${BASE}/api/brackets/${bid}/equipos`);
+
+  if (!equipos.length){
+    sel.innerHTML = '<option value="">(sin equipos)</option>';
+    return;
+  }
+
+  equipos.forEach(e=>{
+    const opt=document.createElement('option');
+    opt.value=e.id;
+    opt.textContent=e.nombre;
+    sel.appendChild(opt);
+  });
+
+  toast(`Equipos cargados (${equipos.length})`, 'ok');
+}
+
+
+
+async function tpGuardar(){
+  const bid = await getCurrentBracketId();
+  if (!bid) {
+    alert('No hay bracket activo');
+    return;
+  }
+
+  const sel = document.getElementById('tpEquipo');
+  const equipo_id = Number(sel.value||0);
+  if (!equipo_id) {
+    alert('Elegí un equipo');
+    return;
+  }
+
+  await jfetch(`${BASE}/api/brackets/${bid}/tercero`, {
+    method:'POST',
+    headers:getHeaders(),
+    body: JSON.stringify({ equipo_id })
+  });
+
+  toast('Tercer puesto guardado (+1 punto)','ok');
+  await loadMedallero();
+}
+
+
+
+document.getElementById('btnTpCargar').onclick = tpLoadEquipos;
+document.getElementById('btnTpGuardar').onclick = tpGuardar;
+
+// Admin (frontend)
+const DISCIPLINAS_SIN_CRUCE = new Set([
+  'Atletismo Femenino 100m',
+  'Atletismo Femenino 400m',
+  'Atletismo Masculino 100m',
+  'Atletismo Masculino 400m',
+  'Pesca',
+  'Sapo Masculino',
+  'Sapo Femenino',
+]);
+
+function esDisciplinaSinCruce(nombre) {
+  return DISCIPLINAS_SIN_CRUCE.has(nombre?.trim());
+}
+
+// mostrar/ocultar según la disciplina actual
+/* async function togglePodioManual(disciplinaId, disciplinaNombre) {
+  const sec = q('#podio-manual');
+  sec.style.display = esDisciplinaSinCruce(disciplinaNombre) ? '' : 'none';
+  sec.dataset.disciplinaId = disciplinaId; // guardo ID para posteriores requests
+}
+ */
+/* q('#btnPodioCargar').onclick = async () => {
+  const disciplinaId = Number(q('#podio-manual').dataset.disciplinaId || 0);
+  if (!disciplinaId) return toast('Disciplina inválida', 'mut');
+
+  const equipos = await jfetch(`${BASE}/api/disciplinas/${disciplinaId}/equipos`);
+  const fill = (sel) => {
+    sel.innerHTML = '';
+    for (const e of equipos) {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.nombre;
+      sel.appendChild(opt);
+    }
+  };
+  fill(q('#podioPrimero'));
+  fill(q('#podioSegundo'));
+  fill(q('#podioTercero'));
+}; */
+
+/* q('#btnPodioGuardar').onclick = async () => {
+  const disciplinaId = Number(q('#podio-manual').dataset.disciplinaId || 0);
+  const primero_id = Number(q('#podioPrimero').value || 0);
+  const segundo_id = Number(q('#podioSegundo').value || 0);
+  const tercero_id = Number(q('#podioTercero').value || 0);
+
+  if (!disciplinaId || !primero_id || !segundo_id || !tercero_id) {
+    return toast('Completá los 3 puestos', 'mut');
+  }
+  // Evitar duplicados
+  if (new Set([primero_id, segundo_id, tercero_id]).size < 3) {
+    return toast('Los 3 puestos deben ser equipos distintos', 'mut');
+  }
+
+  await jfetch(`${BASE}/api/disciplinas/${disciplinaId}/podio`, {
+    method: 'POST',
+    json: { primero_id, segundo_id, tercero_id }
+  });
+
+  toast('Podio guardado');
+  // refrescar medallero
+  loadMedallero();
+}; */
+
+function onDisciplinaSeleccionada(disciplinaId, disciplinaNombre){
+  //togglePodioManual(disciplinaId, disciplinaNombre);
+  const btnGenerar = q('#btnGenerarLlaves'); // tu id real
+  if (esDisciplinaSinCruce(disciplinaNombre)) {
+    btnGenerar?.setAttribute('disabled', 'disabled');
+  } else {
+    btnGenerar?.removeAttribute('disabled');
+  }
+}
+
+/* function setupGenerarLlavesUI(){
+  const selDisc = document.querySelector('#disciplinaSelect');     // <-- usa tu id real
+  const btnGen  = document.querySelector('#btnGenerarLlaves');      // <-- usa tu id real
+  const podio   = document.querySelector('#podio-manual');          // tu panel 1º/2º/3º
+
+  if (selDisc) {
+    selDisc.addEventListener('change', () => {
+      const nombre = selDisc.options[selDisc.selectedIndex]?.text || '';
+      const id     = Number(selDisc.value || 0);
+
+      if (esDisciplinaSinCruce(nombre)) {
+        if (btnGen) btnGen.disabled = true;
+        if (podio) { podio.style.display = ''; podio.dataset.disciplinaId = id; }
+      } else {
+        if (btnGen) btnGen.disabled = false;
+        if (podio)  podio.style.display = 'none';
+      }
+    });
+
+    // disparo inicial
+    selDisc.dispatchEvent(new Event('change'));
+  }
+
+  // protege todos los .onclick con null-check
+  const btnPodioCargar = document.querySelector('#btnPodioCargar');
+  if (btnPodioCargar) btnPodioCargar.onclick = cargarEquiposPodio;
+
+  const btnPodioGuardar = document.querySelector('#btnPodioGuardar');
+  if (btnPodioGuardar) btnPodioGuardar.onclick = guardarPodioManual;
+}
+document.addEventListener('DOMContentLoaded', setupGenerarLlavesUI); */
+
+async function cargarEquiposPodio(){
+  const dId = Number(document.querySelector('#podio-manual')?.dataset.disciplinaId||0);
+  if (!dId) return toast('Disciplina inválida','mut');
+  const equipos = await jfetch(`${BASE}/api/disciplinas/${dId}/equipos`);
+  for (const id of ['podioPrimero','podioSegundo','podioTercero']){
+    const sel = document.getElementById(id);
+    if (!sel) continue;
+    sel.innerHTML = equipos.map(e=>`<option value="${e.id}">${e.nombre}</option>`).join('');
+  }
+}
+async function guardarPodioManual(){
+  const sec = document.querySelector('#podio-manual');
+  const dId = Number(sec?.dataset.disciplinaId||0);
+  const primero_id = Number(document.getElementById('podioPrimero')?.value||0);
+  const segundo_id = Number(document.getElementById('podioSegundo')?.value||0);
+  const tercero_id = Number(document.getElementById('podioTercero')?.value||0);
+  if (!dId || !primero_id || !segundo_id || !tercero_id) return toast('Completá los 3 puestos','mut');
+
+  if (new Set([primero_id,segundo_id,tercero_id]).size<3) return toast('Los puestos deben ser distintos','mut');
+
+  await jfetch(`${BASE}/api/disciplinas/${dId}/podio`, {
+    method:'POST',
+    json:{ primero_id, segundo_id, tercero_id }
+  });
+  toast('Podio guardado');
+  loadMedallero();
+}
+
+// helpers
+function fillSelect(sel, equipos) {
+  sel.innerHTML = '<option value="">-- elige --</option>';
+  for (const e of equipos) {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = `${e.sucursal} — ${e.nombre}`;
+    sel.appendChild(opt);
+  }
+}
+
+/* function showPodioManual(payload) {
+  // payload: { manual_podium:true, disciplina_id, equipos:[{id, nombre, sucursal}, ...] }
+  const box = document.getElementById('podioManual');
+  const pm1 = document.getElementById('pm1');
+  const pm2 = document.getElementById('pm2');
+  const pm3 = document.getElementById('pm3');
+  const btn = document.getElementById('pmGuardar');
+
+  fillSelect(pm1, payload.equipos);
+  fillSelect(pm2, payload.equipos);
+  fillSelect(pm3, payload.equipos);
+  box.style.display = 'block';
+
+  btn.onclick = async () => {
+    const primero_equipo_id = Number(pm1.value || 0);
+    const segundo_equipo_id = Number(pm2.value || 0);
+    const tercero_equipo_id = Number(pm3.value || 0);
+    if (!primero_equipo_id || !segundo_equipo_id || !tercero_equipo_id) {
+      alert('Elegí los tres puestos.');
+      return;
+    }
+    if (new Set([primero_equipo_id, segundo_equipo_id, tercero_equipo_id]).size < 3) {
+      alert('Los tres puestos deben ser equipos distintos.');
+      return;
+    }
+    try {
+      await jfetch(`${BASE}/api/podio/manual`, {
+        method: 'POST',
+        body: JSON.stringify({
+          disciplina_id: payload.disciplina_id,
+          primero_equipo_id,
+          segundo_equipo_id,
+          tercero_equipo_id
+        })
+      });
+      toast('Podio guardado', 'ok');
+      // refrescá medallero
+      loadMedallero?.();
+    } catch (e) {
+      alert('Error guardando podio: ' + (e?.error || e));
+    }
+  };
+} */
+
+// botón “Generar llaves”
+/* document.getElementById('btnGenerarLlaves').onclick = async () => {
+  const disciplina_id = Number(document.getElementById('disciplinaSelect').value);
+  const nombre = (document.getElementById('nombreLlave').value || '').trim();
+  const equipo_ids_en_orden = getOrdenSeleccionado(); // lo que ya tienes
+
+  try {
+    const r = await jfetch(`${BASE}/api/brackets/generate`, {
+      method: 'POST',
+      body: JSON.stringify({ disciplina_id, nombre, equipo_ids_en_orden })
+    });
+    // flujo normal: se generó el bracket
+    toast('Llaves generadas. Bracket #' + r.bracket_id, 'ok');
+    // ocultar podio manual si estuviera visible
+    document.getElementById('podioManual').style.display = 'none';
+  } catch (e) {
+    let obj;
+    try { obj = JSON.parse(String(e.message)); } catch {}
+    // >>>> NUEVO: si el backend respondió 409 con manual_podium, muestro el podio manual
+    if (obj?.manual_podium) {
+      showPodioManual(obj);   // usa el showPodioManual de “podioManualBox”
+      return;
+    }
+    if (obj?.detalle?.notAssigned) {
+      alert(`Equipos no asignados: ${obj.detalle.notAssigned.join(', ')}`);
+    } else {
+      alert(`Error generando: ${obj?.error || e.message}`);
+    }
+};
+ */
+async function generarLlavesHandler() {
+  const disciplinaId = Number(q('#disciplinaSelect').value);    // ajusta al id real del select de disciplina
+  const nombreLlave  = q('#txtNombreLlave')?.value || 'Llave';  // ajusta si tu input tiene otro id
+  //const ordenIds     = getOrdenActualIds();                     // tu función existente que arma equipo_ids_en_orden
+
+  try {
+    const r = await fetch(`${BASE}/api/brackets/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        disciplina_id: disciplinaId,
+        nombre: nombreLlave,
+        equipo_ids_en_orden: ordenIds
+      })
+    });
+
+    const data = await r.json();
+
+    if (r.status === 200) {
+      // Flujo normal (se generaron llaves)
+      toast('Llaves generadas');
+      // tu lógica existente de refrescar vista…
+      return;
+    }
+
+    if (r.status === 409 && data?.manual_podium) {
+      // *** NUEVO: mostrar los 3 selects del podio manual ***
+      showPodioManual(data);   // ver función abajo
+      return;
+    }
+
+    throw new Error(data?.error || 'Error generando');
+
+  } catch (err) {
+    alert(err.message || String(err));
+  }
+}
+function showPodioManual(payload) {
+  // payload = { manual_podium:true, disciplina, disciplina_id, equipos:[{id,nombre,sucursal}, ...] }
+  q('#podioTitle').textContent = `${payload.disciplina} — podio manual`;
+
+  const makeOptions = (arr) =>
+    `<option value="">Seleccione…</option>` +
+    arr.map(e => `<option value="${e.id}">${e.sucursal} — ${e.nombre}</option>`).join('');
+
+  q('#podio1').innerHTML = makeOptions(payload.equipos);
+  q('#podio2').innerHTML = makeOptions(payload.equipos);
+  q('#podio3').innerHTML = makeOptions(payload.equipos);
+
+  // Guarda en dataset para usar al guardar
+  const box = q('#podioManualBox');
+  box.dataset.disciplinaId = String(payload.disciplina_id);
+  box.style.display = '';
+}
+
+q('#btnGuardarPodio').onclick = async () => {
+  const box = q('#podioManualBox');
+  const disciplinaId = Number(box.dataset.disciplinaId || 0);
+  const e1 = Number(q('#podio1').value || 0);
+  const e2 = Number(q('#podio2').value || 0);
+  const e3 = Number(q('#podio3').value || 0);
+
+  if (!disciplinaId) return alert('Disciplina inválida');
+  if (!e1 || !e2 || !e3) return alert('Elegí 1°, 2° y 3°');
+  if (new Set([e1, e2, e3]).size < 3) return alert('Los puestos deben ser distintos.');
+
+  await jfetch(`${BASE}/api/disciplinas/${disciplinaId}/podio`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ primero_id: e1, segundo_id: e2, tercero_id: e3 })
+  });
+
+  toast('Podio guardado');
+  try { await loadMedallero?.(); } catch {}
+};
+
+
+
+</script>
+
+<script>
+let CURRENT_BRACKET_ID = 0;
+function setCurrentBracketId(id){
+  CURRENT_BRACKET_ID = Number(id) || 0;
+}
+
+async function getCurrentBracketId() {
+
+  // ===== ÁRBITRO =====
+  if (!isAdmin()) {
+    if (!Array.isArray(DISCIPLINAS_PERMITIDAS) || !DISCIPLINAS_PERMITIDAS.length) {
+      console.warn('Árbitro sin disciplinas asignadas');
+      return null;
+    }
+
+    const disciplinaId = DISCIPLINAS_PERMITIDAS[0].id;
+
+    const br = await jfetch(`/api/brackets?disciplina_id=${disciplinaId}`);
+    if (!Array.isArray(br) || !br.length) return null;
+
+    return br[br.length - 1].id;
+  }
+
+  // ===== ADMIN =====
+  const a = document.querySelector('#bvBracketId')?.value;
+  const b = document.querySelector('#rbBracketId')?.value;
+
+  return Number(a || b || CURRENT_BRACKET_ID || 0) || null;
+}
+
+
+
+</script>
+
+<script>
+  // Reutilizá lo que ya tienes:
+function getOlimpiadaId(){
+  const v = Number(localStorage.getItem('olimpiada_id') || 0);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+function setOlimpiadaId(id){
+  localStorage.setItem('olimpiada_id', String(id||0));
+}
+
+// Extiende getHeaders:
+function getHeaders(extra={}){
+  const t = getToken();
+  const oid = getOlimpiadaId();
+  const base = {
+    'Content-Type':'application/json',
+    'Cache-Control':'no-store',
+    'Pragma':'no-cache'
+  };
+  if (t) base['Authorization'] = 'Bearer '+t;
+  if (oid) base['X-Olimpiada-Id'] = String(oid);  // << clave
+  return Object.assign(base, extra);
+}
+
+// Cargar ediciones y poblar select
+async function loadOlimpiadas(){
+  const sel = q('#cbOlimpiada');
+
+  // 🔒 FIX CLAVE: si el select no existe (árbitro), no hacer nada
+  if (!sel) {
+    return;
+  }
+
+  const rows = await jfetch(`${BASE}/api/olimpiadas`);
+  sel.innerHTML = '';
+
+  rows.forEach(r=>{
+    const opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = r.nombre || `${r.anio} — ${r.sede || '(sede)'}`;
+    sel.appendChild(opt);
+  });
+
+  const cur = getOlimpiadaId();
+  if (cur) sel.value = String(cur);
+  if (!sel.value && rows[0]) {
+    sel.value = String(rows[0].id);
+    setOlimpiadaId(rows[0].id);
+  }
+
+  sel.onchange = async ()=>{
+  setOlimpiadaId(Number(sel.value));
+
+  if (!isAdmin()) {
+    initOlimpiadaParaArbitro();
+  }
+
+} 
+
+     // ✅ sin await
+ 
+
+// Crear nueva edición
+q('#btnNuevaEdicion').onclick = async () => {
+  // 1) Año
+  const anio = Number(prompt('Año de la nueva edición (YYYY):') || 0);
+  if (!anio || String(anio).length !== 4) {
+    alert('Año inválido');
+    return;
+  }
+
+  // 2) Nombre (opcional)
+  const nombre = (prompt('Nombre de la edición (opcional):') || '').trim();
+
+  // 3) Provincias (catálogo GLOBAL, sin X-Olimpiada-Id)
+  let provincias = [];
+  try {
+    const resp = await fetch(`${BASE}/api/olimpiadas/provincias`);
+    if (!resp.ok) throw new Error();
+    provincias = await resp.json();
+  } catch {
+    alert('No se pudo cargar la lista de provincias');
+    return;
+  }
+  if (!Array.isArray(provincias) || !provincias.length) {
+    alert('No hay provincias configuradas');
+    return;
+  }
+
+  // 4) Elegir provincia con prompt simple (número de índice)
+  const lista = provincias.map((p, i) => `${i + 1}. ${p.nombre}`).join('\n');
+  const sel = Number(prompt(`Elegí provincia sede:\n\n${lista}\n\nIngresá el número:`) || 0);
+  const prov = provincias[sel - 1];
+  if (!prov) {
+    alert('Selección inválida');
+    return;
+  }
+
+  // 5) Crear edición (este POST TAMPOCO debe requerir X-Olimpiada-Id)
+  let nueva;
+  try {
+    const r = await fetch(`${BASE}/api/olimpiadas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        anio,
+        provincia_id: prov.id,   // << requerido por tu backend
+        nombre: nombre || null   // opcional
+      })
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+    nueva = data;
+  } catch(e) {
+    alert(`Error creando edición: ${e.message || e}`);
+    return;
+  }
+
+  // 6) Guardar como edición activa y refrescar combos
+  setOlimpiadaId(nueva.id);
+  await loadOlimpiadas();
+  toast('Edición creada', 'ok');
+};
+
+
+
+// Boot inicial
+(async ()=>{
+  await loadOlimpiadas();
+  if (isAdmin()) {
+    await cargarDisciplinas();   // 🔑 ESTO FALTABA
+    await loadArbitros();        // perfiles árbitros
+  } else {
+    await initOlimpiadaParaArbitro();
+  }
+  if (!getOlimpiadaId()) {
+    console.warn('No hay olimpiada activa, no cargo permisos');
+    return;
+  }
+
+  aplicarVistaPorRol(); 
+
+  const bid = await getCurrentBracketId();
+  if (bid) {
+    setCurrentBracketId(bid);
+    await Promise.all([
+      loadRounds(bid),
+      loadResultados(bid),
+      loadMedallero()
+    ]);
+  }
+})();
+
+
+
+
+
+
+
+/* // crear nueva edición
+document.getElementById('btnNuevaEdicion')?.addEventListener('click', async ()=>{
+  const anioStr = prompt('Año de la nueva edición (YYYY):');
+  const anio    = Number(anioStr);
+  if (!anio || String(anio).length !== 4) { alert('Año inválido'); return; }
+
+  // opcional: sede provincia (si tu backend lo usa)
+  const sedeStr = prompt('ID de provincia sede (opcional, dejar vacío si no aplica):') || '';
+  const payload = { anio };
+  if (sedeStr.trim()) payload.sede_provincia_id = Number(sedeStr);
+
+  const resp = await jfetch(`${BASE}/api/olimpiadas`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload)
+  });
+
+  // guardar como edición activa
+  localStorage.setItem('olimpiada_id', String(resp.id));
+  toast(`Edición ${resp.anio || resp.id} creada`, 'ok');
+
+  // recargar combo y vistas
+  await cargarEdiciones();
+}); */
+
+// cargar ediciones al entrar
+//(async ()=>{ try { await cargarEdiciones(); } catch(e){ console.warn(e); } })();
+
+async function crearNuevaEdicion({ anio, provincia_id, nombre }) {
+  const r = await fetch('/api/olimpiadas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, // público
+    body: JSON.stringify({ anio, provincia_id, nombre }),
+  });
+  const data = await r.json();
+  setOlimpiadaId(data.id);          // 🔴 clave
+  await cargarPantallaPrincipal();  // aquí ya podés usar afetch()
+}
+
+async function loadArbitros() {
+  if (IS_ARBITRO) return; 
+  const sel = document.getElementById('arbitroSelect');
+  sel.innerHTML = '<option value="">Seleccione árbitro</option>';
+
+  const res = await fetch('/api/arbitros', {
+    headers: {
+      'Authorization': 'Bearer ' + getToken()
+    }
+  });
+
+  if (!res.ok) {
+    console.error('Error cargando árbitros', await res.text());
+    return;
+  }
+
+  const data = await res.json();
+
+  if (!Array.isArray(data)) {
+    console.error('Respuesta inválida de árbitros:', data);
+    return;
+  }
+
+  for (const u of data) {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = u.usuario;
+    sel.appendChild(opt);
+  }
+}
+
+
+/*async function loadDisciplinasAll() {
+  if (IS_ARBITRO) return; 
+  const r = await fetch('/api/disciplinas', { headers: getHeaders() });
+  const data = await r.json();
+  const sl = document.getElementById('disciplinasArbitro');
+  sl.dataset.all = JSON.stringify(data); // cache
+  sl.innerHTML = data.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
+}*/
+
+/* async function loadDisciplinas(){
+
+  // 🔒 FIX 1: si no hay combo de disciplinas, no hacer nada
+  const s1 = q('#cbDisciplina');
+  if (!s1) return;
+
+  if (!getOlimpiadaId()) {
+    await loadOlimpiadas();
+    if (!getOlimpiadaId()) { 
+      toast('Elegí o creá una edición primero', 'warn'); 
+      return; 
+    }
+  }
+
+  const d = await jfetch(`${BASE}/api/disciplinas`);
+
+  s1.innerHTML = '';
+
+  const s2 = q('#asigDisciplina');
+  if (s2) s2.innerHTML = '';
+
+  d.forEach(x=>{
+    const o1 = ce('option');
+    o1.value = x.id;
+    o1.textContent = x.nombre;
+    s1.appendChild(o1);
+
+    if (s2) {
+      const o2 = ce('option');
+      o2.value = x.id;
+      o2.textContent = x.nombre;
+      s2.appendChild(o2);
+    }
+  });
+
+  if (d.length) {
+    await Promise.all([
+      cargarEquiposPorDisciplina(),
+      s2 ? cargarAsociaciones() : Promise.resolve()
+    ]);
+  }
+} */
+
+/*async function loadPermisosArbitro() {
+  if (isAdmin()) return; // ⬅️ admin NO necesita esto
+
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  if (!getOlimpiadaId()) return;
+
+  const r = await fetch('/api/arbitros/mi-contexto', {
+    headers: getHeaders()
+  });
+
+  if (!r.ok) {
+    console.error('Error cargando contexto árbitro');
+    return;
+  }
+
+  const ctx = await r.json();
+
+  DISCIPLINAS_PERMITIDAS = Array.isArray(ctx.disciplinas)
+    ? ctx.disciplinas
+    : [];
+
+  console.log('DISCIPLINAS_PERMITIDAS', DISCIPLINAS_PERMITIDAS);
+
+  if (!DISCIPLINAS_PERMITIDAS.length) {
+    console.warn('Árbitro sin disciplinas asignadas');
+  }
+}*/
+
+
+
+/* async function loadPermisosArbitro() {
+  const arbId = Number(document.getElementById('arbitroSelect').value || 0);
+  if (!arbId) return;
+  const r = await fetch('/api/arbitros/permisos', { headers: getHeaders() });
+  const lista = await r.json(); // [{usuario_id, username, disciplinas:[{id,nombre}]}]
+  const item = lista.find(x => x.usuario_id === arbId);
+
+  const sl = document.getElementById('disciplinasArbitro');
+  // deseleccionar todo
+  [...sl.options].forEach(o => o.selected = false);
+  if (item?.disciplinas?.length) {
+    const ids = new Set(item.disciplinas.map(d => String(d.id)));
+    [...sl.options].forEach(o => { if (ids.has(o.value)) o.selected = true; });
+  }
+} */
+
+let DISCIPLINAS_PERMITIDAS = [];
+
+
+
+/* async function initContextoArbitro() {
+  if (isAdmin()) return;
+
+  const r = await fetch('/api/arbitros/contexto', {
+    headers: getHeaders()
+  });
+
+  const data = await r.json();
+
+  if (!data.olimpiada_id) {
+    alert('No hay olimpiada activa');
+    return;
+  }
+
+  setOlimpiadaId(data.olimpiada_id);
+  DISCIPLINAS_PERMITIDAS = data.disciplinas || [];
+} */
+
+function mostrarAviso(msg){
+  alert(msg);
+}
+
+async function initOlimpiadaParaArbitro() {
+  if (isAdmin()) return;
+
+  try {
+    const data = await jfetch('/api/arbitros/mi-contexto');
+
+    if (!data?.disciplinas?.length) {
+      alert('No tenés disciplinas asignadas en esta edición');
+      DISCIPLINAS_PERMITIDAS = [];
+      return;
+    }
+
+    DISCIPLINAS_PERMITIDAS = data.disciplinas;
+    console.log('Disciplinas árbitro:', DISCIPLINAS_PERMITIDAS);
+
+  } catch (e) {
+    console.error('Error initOlimpiadaParaArbitro', e);
+    DISCIPLINAS_PERMITIDAS = [];
+  }
+}
+
+
+
+
+
+function filtrarSelectDisciplinas() {
+  if (!DISCIPLINAS_PERMITIDAS.length) return;
+
+  const selects = [
+    '#cbDisciplina',
+    '#asigDisciplina'
+  ];
+
+  selects.forEach(selId => {
+    const sel = document.querySelector(selId);
+    if (!sel) return;
+
+    [...sel.options].forEach(opt => {
+      const ids = new Set(DISCIPLINAS_PERMITIDAS.map(d => d.id));
+      if (!ids.has(Number(opt.value))) {
+        opt.remove();
+      }
+    });
+  });
+}
+
+
+
+async function guardarPermisos() {
+  const arbId = Number(document.getElementById('arbitroSelect').value || 0);
+  const sl    = document.getElementById('disciplinasArbitro');
+  const ids   = [...sl.selectedOptions].map(o => Number(o.value));
+  const r = await fetch('/api/arbitros/permisos', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ usuario_id: arbId, disciplina_ids: ids })
+  });
+  const js = await r.json();
+  if (!r.ok) return alert(js.error || 'Error guardando permisos');
+  alert('Permisos guardados');
+}
+
+//document.getElementById('arbitroSelect').addEventListener('change', loadPermisosArbitro);
+document.getElementById('guardarPermisos').addEventListener('click', guardarPermisos);
+
+// al cargar la página / al cambiar la edición:
+/*async function initPerfilesArbitros() {
+  if (IS_ARBITRO) return; 
+  await loadArbitros();
+  await loadDisciplinasAll();
+  await initOlimpiadaParaArbitro();
+}*/
+
+//initPerfilesArbitros();
+//initOlimpiadaParaArbitro();
+
+</script>
+
+<script>
+//  ===== Control de UI por rol ===== 
+(function applyRoleUI(){
+  const token = localStorage.getItem('token');
+  if (!token) return;
+
+  let payload;
+  try {
+    payload = JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return;
+  }
+
+  const rol = payload.role || payload.rol;
+
+  // ADMIN ve todo → no hacemos nada
+  if (rol === 'admin') return;
+
+  // === ARBITRO ===
+
+  // 1. Ocultar creación / cambio de edición
+  document.getElementById('btnNuevaEdicion')?.remove();
+  document.getElementById('cbOlimpiada')?.closest('label')?.remove();
+
+  // 2. Ocultar panel "Perfiles de árbitros"
+  document.getElementById('arbitroSelect')
+    ?.closest('.card')
+    ?.remove();
+
+  // 3. Ocultar "Generar llaves"
+  document.getElementById('panelGenerar')?.remove();
+
+  // 4. Ocultar "Asociar equipos a disciplina"
+  document.getElementById('asigDisciplina')
+    ?.closest('.card')
+    ?.remove();
+
+  // 5. El árbitro NO puede finalizar la olimpiada
+  document.getElementById('btnFinalizar')?.remove();
+
+  // 6. Feedback visual (opcional)
+  console.log('UI filtrada para árbitro');
+})();
+
+/**
+ * SISTEMA DE CONTROL DE ACCESO FULL STACK
+ * Ejecuta el filtrado de UI basado en el rol del usuario
+ */
+function aplicarPermisosUI() {
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role'); // Usamos el string que guardamos en login
+
+    if (!token || !role) {
+        console.error("No hay sesión activa");
+        window.location.href = 'login.html';
+        return;
+    }
+
+    if (role === 'admin') {
+        console.log("Acceso total: Administrador");
+        return; // No ocultamos nada
+    }
+
+    if (role === 'arbitro') {
+        console.log("Acceso limitado: Árbitro");
+        
+        // 1. Secciones completas que el árbitro no debe ver
+        const seccionesAdmin = [
+            'arbitroSelect',    // Selección de perfiles
+            'panelGenerar',     // Generación de llaves
+            'asigDisciplina',   // Asociación de equipos
+            'btnFinalizar',     // Botón terminar olimpíada
+            'btnLimpiarTodo'    // Botones de reset
+        ];
+
+        seccionesAdmin.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // Buscamos el contenedor .card más cercano para eliminarlo completo
+                const container = el.closest('.card') || el;
+                container.remove();
+            }
+        });
+
+        // 2. Ocultar inputs técnicos (IDs de brackets)
+        const inputsTecnicos = ['#bvBracketId', '#rbBracketId'];
+        inputsTecnicos.forEach(selector => {
+            const el = document.querySelector(selector);
+            if (el) {
+                const label = el.closest('label') || el;
+                label.style.display = 'none';
+            }
+        });
+
+        // 3. Deshabilitar gestión de usuarios si existiera
+        const navUsuarios = document.querySelector('a[href*="usuarios"]');
+        if (navUsuarios) navUsuarios.remove();
+    }
+}
+
+// Ejecutar al cargar el DOM
+document.addEventListener('DOMContentLoaded', aplicarPermisosUI);
+
+
+//async function getBracketAutomaticoParaArbitro() {
+
+//   const r = await jfetch('/api/arbitros/contexto');
+
+//   if (!r?.disciplinas?.length) {
+//     alert('No tenés disciplinas asignadas en esta edición');
+//     return null;
+//   }
+
+//   const disciplinaId = r.disciplinas[0].id;
+
+//   const br = await jfetch(`/api/brackets?disciplina_id=${disciplinaId}`);
+
+//   if (!Array.isArray(br) || !br.length) {
+//     alert('No hay bracket creado para tu disciplina');
+//     return null;
+//   }
+
+//   return br[br.length - 1].id;
+// }
+
+
+
+</script>
+
+
+</body>
+</html>

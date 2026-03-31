@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vista Pública - Olimpiadas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Olimpiadas - Público</h1>
+
+  <div class="card">
+    <h2>Ver Bracket</h2>
+    <div class="small">
+      <label>Bracket ID:</label> <input id="bvBracketId" type="number" placeholder="ID" style="width:120px">
+      <button id="btnVerBracket">Ver</button>
+    </div>
+    <div id="bracket" class="bracket"></div>
+  </div>
+
+  <div class="card">
+    <h2>Medallero</h2>
+    <table id="tblMedallero">
+      <thead><tr><th>Sucursal</th><th>Puntos</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const BASE = location.origin;
+    const socket = io();
+
+    document.getElementById('btnVerBracket').addEventListener('click', verBracket);
+    async function verBracket(){
+      const id = parseInt(document.getElementById('bvBracketId').value,10);
+      if(!id) return alert('Ingresá un Bracket ID');
+      const r=await fetch(BASE+'/api/brackets/'+id+'/rounds');
+      const data=await r.json();
+      renderBracket(data);
+    }
+
+    function renderBracket(roundsMap){
+      const container=document.getElementById('bracket'); container.innerHTML='';
+      const rounds = Object.keys(roundsMap).map(k=>parseInt(k,10)).sort((a,b)=>a-b);
+      rounds.forEach((rn, idx)=>{
+        const col=document.createElement('div'); col.className='round';
+        roundsMap[rn].forEach((m)=>{
+          const box=document.createElement('div'); box.className='match'+(idx===rounds.length-1?' final':'');
+          const t1=document.createElement('div'); t1.className='team'; t1.innerHTML=`<span class="name">${m.n1||'—'}</span><span>${(m.s1??'')}</span>`;
+          const t2=document.createElement('div'); t2.className='team'; t2.innerHTML=`<span class="name">${m.n2||'—'}</span><span>${(m.s2??'')}</span>`;
+          const when=document.createElement('div'); when.className='small'; when.textContent = m.fecha ? new Date(m.fecha).toLocaleString() : 'Sin horario';
+          box.appendChild(t1); box.appendChild(t2); box.appendChild(when);
+          if(idx < rounds.length-1){ const conn=document.createElement('div'); conn.className='connector'; box.appendChild(conn); }
+          col.appendChild(box);
+        });
+        container.appendChild(col);
+      });
+    }
+
+    async function cargarMedallero(){
+      const r = await fetch(BASE + '/api/medallero'); if (!r.ok) return;
+      const d = await r.json(); const tb = document.querySelector('#tblMedallero tbody'); tb.innerHTML='';
+      d.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.sucursal}</td><td>${row.puntos}</td>`; tb.appendChild(tr);
+      });
+    }
+    cargarMedallero();
+
+    socket.on('resultado_actualizado', () => {
+      const id = parseInt(document.getElementById('bvBracketId').value || '0', 10);
+      if (id) verBracket();
+      cargarMedallero();
+    });
+  </script>
+</body>
+</html>

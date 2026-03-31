@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Olimpiadas – Sitpos | Login Visor</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --b:#e5e7eb; --bb:#cbd5e1; --t:#111827; --mut:#6b7280; --bg:#fff;
+      --btn:#0ea5e9; --btnh:#0284c7; --err:#b91c1c; --ok:#16a34a;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--t);font-family:system-ui,Segoe UI,Arial,sans-serif}
+    .wrap{max-width:840px;margin:40px auto;padding:0 16px}
+    .card{border:1px solid var(--b);border-radius:12px;padding:24px;background:#fff}
+    h1{font-size:28px;margin:0 0 6px}
+    .mut{color:var(--mut)}
+    label{display:block;font-weight:600;margin:14px 0 6px}
+    input[type=text],input[type=password]{
+      width:100%;padding:12px;border:1px solid var(--bb);border-radius:10px;font-size:16px
+    }
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .btn{appearance:none;border:0;border-radius:10px;padding:10px 16px;
+         color:#fff;background:var(--btn);cursor:pointer;font-weight:600}
+    .btn:hover{background:var(--btnh)}
+    .msg{margin-left:12px;color:var(--err)}
+    .top{display:flex;align-items:end;justify-content:space-between;margin-bottom:18px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div>
+          <h1>Olimpiadas – Sitpos</h1>
+          <div class="mut">Ingresá con tu usuario/contraseña (rol “visor” o “admin”).</div>
+        </div>
+      </div>
+
+      <form id="loginForm" autocomplete="on">
+        <label for="usuario">Usuario</label>
+        <input id="usuario" type="text" placeholder="usuario" required />
+
+        <label for="clave">Contraseña</label>
+        <input id="clave" type="password" placeholder="********" required />
+
+        <div class="row" style="margin-top:16px">
+          <button class="btn" type="submit">Ingresar</button>
+          <span id="msg" class="msg"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const form = document.getElementById('loginForm');
+      const msg  = document.getElementById('msg');
+
+      function setMsg(t, ok=false){
+        msg.textContent = t || '';
+        msg.style.color = ok ? 'var(--ok)' : 'var(--err)';
+      }
+
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        setMsg('');
+        const username = document.getElementById('usuario').value.trim();
+        const password = document.getElementById('clave').value.trim();
+        if(!username || !password){ setMsg('Completá usuario y contraseña'); return; }
+
+        try{
+          const r = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json' },
+            body: JSON.stringify({ username, password }) // <-- nombres que ya usa tu backend
+          });
+
+          if(!r.ok){
+            // intentar mostrar detalle si el backend manda texto/json
+            let txt=''; try{ txt = await r.text(); }catch{}
+            setMsg('Usuario o contraseña inválidos');
+            console.error('Login error:', txt || r.status);
+            return;
+          }
+
+          const data = await r.json();  // { token, role, ... }
+          if(!data?.token){ setMsg('Respuesta inválida del servidor'); return; }
+
+          // Guardar sesión
+          localStorage.setItem('token', data.token);
+          if (data.role) localStorage.setItem('role', data.role);
+
+          // Redirigir por rol
+          const role = (data.role||'').toLowerCase();
+          if (role === 'admin') {
+            window.location.href = 'admin.html';
+          } else {
+            // visor (u otros roles limitados)
+            window.location.href = 'visor.html';
+          }
+        }catch(err){
+          console.error(err);
+          setMsg('No se pudo conectar con el servidor');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

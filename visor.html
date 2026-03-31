@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <title>Visor – Olimpiadas</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root{--b:#e5e7eb;--bb:#cbd5e1;--t:#111827;--mut:#6b7280;--bg:#fff;--final:#dbeafe;--ok:#16a34a}
+    html,body{margin:0;padding:0;font-family:system-ui,Segoe UI,Arial,sans-serif;color:var(--t);background:var(--bg)}
+    .wrap{padding:16px;max-width:1280px;margin:0 auto}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .card{border:1px solid var(--b);border-radius:10px;padding:12px;margin-bottom:16px;background:#fff}
+    .title{font-size:20px;font-weight:700;margin:0 0 8px}
+    .mut{color:var(--mut);font-size:12px}
+    .ok{color:var(--ok)}
+    .btn{border:1px solid #9ca3af;background:#fafafa;padding:6px 10px;border-radius:8px;cursor:pointer}
+    select{padding:6px 8px;border:1px solid var(--bb);border-radius:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid var(--b);padding:6px 8px;text-align:left}
+    .rounds-wrap{position:relative;overflow-x:auto;overflow-y:hidden;padding-bottom:8px}
+    .rounds{display:flex;gap:16px;align-items:flex-start;white-space:nowrap}
+    .round{flex:0 0 360px;max-width:360px}
+    .round h4{position:sticky;top:0;background:#fff;margin:0 0 8px;padding:6px 4px;border-bottom:1px solid #eee}
+    .match{border:1px solid var(--bb);border-radius:10px;padding:10px;min-height:86px;margin-bottom:12px;background:#fff}
+    .match.final{background:var(--final)}
+    .small{font-size:12px;color:var(--mut)}
+    #lines{position:absolute;inset:0;pointer-events:none}
+
+    /* --- menú --- */
+    .menu-wrap{position:relative}
+    #backdrop{position:fixed;inset:0;background:rgba(0,0,0,.05);display:none;z-index:40}
+.menu{
+  position:fixed;            /* antes: absolute */
+  left:16px;                 /* valor inicial de respaldo, lo ajustamos por JS */
+  top:60px;                  /* valor inicial de respaldo, lo ajustamos por JS */
+  background:#fff;
+  border:1px solid var(--b);
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.08);
+  min-width:220px;
+  display:none;
+  z-index:1000;              /* súbelo bien arriba */
+}
+    .menu a{display:block;padding:10px 12px;text-decoration:none;color:var(--t);cursor:pointer}
+    .menu a:hover{background:#f8fafc}
+    .menu .sep{height:1px;background:var(--b);margin:4px 0}
+    .hidden{display:none}
+
+  </style>
+</head>
+<body>
+
+  <div class="card">
+  <div class="row">
+    <div class="menu-wrap" style="margin-right:auto">
+      <button id="btnMenu" class="btn">☰ Menú</button>
+      <div id="menu" class="menu">
+        <a id="miInicio">Inicio</a>
+        <a id="miUbicacion">Ubicación</a>
+        <div class="sep"></div>
+        <a id="miSalir">Salir</a>
+      </div>
+    </div>
+
+    <button id="btnSalir" class="btn">Salir</button>
+    <div class="mut" id="estado">OK</div>
+  </div>
+</div>
+<div id="backdrop"></div>
+
+<div id="view-inicio">
+<div class="wrap">
+ <!--  <div class="card">
+    <div class="row">
+      <button id="btnSalir" class="btn">Salir</button>
+      <div class="mut" id="estado">OK</div>
+    </div>
+  </div> -->
+
+  <div class="card">
+    <h2 class="title">Vista por disciplina</h2>
+    <div class="row">
+      <label>Disciplina
+        <select id="cbDisciplina"></select>
+      </label>
+      <button id="btnVer" class="btn">Ver</button>
+      <div id="tipoVista" class="mut"></div>
+    </div>
+    <div class="sp" style="height:8px"></div>
+
+    <!-- Bracket (para disciplinas con cruce) -->
+    <div id="bracketView" style="display:none">
+      <div class="rounds-wrap" id="roundsWrap">
+        <svg id="lines"></svg>
+        <div class="rounds" id="rounds"></div>
+      </div>
+    </div>
+
+    <!-- Podio (para disciplinas sin llaves) -->
+    <div id="podioView" style="display:none">
+      <table>
+        <thead><tr><th>Puesto</th><th>Equipo</th></tr></thead>
+        <tbody id="podioTbody">
+          <tr><td>1º</td><td id="p1">—</td></tr>
+          <tr><td>2º</td><td id="p2">—</td></tr>
+          <tr><td>3º</td><td id="p3">—</td></tr>
+        </tbody>
+      </table>
+      <div class="mut" id="podioMsg" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="title">Medallero (en vivo)</h2>
+    <div id="medallero"></div>
+
+  </div>
+
+  <div class="sp" style="height:8px"></div>
+  <div id="campeonMsg" class="ok"></div>
+
+</div>
+</div>
+
+<!-- === Vista: UBICACIÓN === -->
+<div id="view-ubicacion" class="card" style="display:none">
+  <h2 class="title">Ubicación del Predio</h2>
+<p><b>CEDAR – Yerba Buena, Tucumán</b></p>
+
+<!-- Mapa embebido (sin API key) -->
+<iframe
+  src="https://maps.google.com/maps?q=CEDAR%20Yerba%20Buena%20Tucuman&z=15&output=embed"
+  width="100%" height="360" style="border:0;" loading="lazy"
+  referrerpolicy="no-referrer-when-downgrade">
+</iframe>
+
+<div class="row" style="margin-top:10px; gap:8px;">
+  <!-- Ruta A: por Av. Aconquija (ejemplo de waypoints) -->
+  <a class="btn" target="_blank" rel="noopener"
+     href="https://maps.app.goo.gl/fWKe8V3GbxCnRRxN7">
+    Ruta A (por Av. Aconquija)
+  </a>
+
+  <!-- Ruta B: por Av. Presidente Perón (ejemplo de waypoints) -->
+  <a class="btn" target="_blank" rel="noopener"
+     href="https://maps.app.goo.gl/FVA8wwXVLuHTcNkb8">
+    Ruta B (por Av. Roca)
+  </a>
+</div>
+
+<p class="mut" style="margin-top:6px;">
+  <b>Predio CEDAR Tucuman</b>
+</p>
+
+</div>
+
+<script>
+const BASE = location.origin;
+
+// ======= Config =======
+const DISCIPLINAS_SIN_CRUCE = new Set([
+  'Atletismo Femenino 100m',
+  'Atletismo Femenino 400m',
+  'Atletismo Masculino 100m',
+  'Atletismo Masculino 400m',
+  'Pesca',
+  'Loba Masculino',
+  'Loba Femenino',
+]);
+
+// ======= utils + auth =======
+function q(s){ return document.querySelector(s); }
+function ce(t,c){ const e=document.createElement(t); if(c) e.className=c; return e; }
+function token(){ return localStorage.getItem('token')||''; }
+function headers(){
+  return { 'Content-Type':'application/json', ...(token()?{'Authorization':'Bearer '+token()}: {})};
+}
+async function jfetch(url,opts={}){
+  const u = url+(url.includes('?')?'&':'?')+('_='+Date.now());
+  const r = await fetch(u,{...opts,headers:{...headers(),...(opts.headers||{})},cache:'no-store'});
+  if(!r.ok){ const t=await r.text().catch(()=>String(r.status)); throw new Error(t||('HTTP '+r.status)); }
+  try { return await r.json(); } catch { return {}; }
+}
+
+// ======= salir =======
+q('#btnSalir').onclick = ()=>{ localStorage.removeItem('token'); location.href='login_visor.html'; };
+
+// ======= disciplinas =======
+let DISC_MAP = new Map(); // id -> nombre
+
+async function cargarDisciplinas(){
+  const d = await jfetch(`${BASE}/api/disciplinas`);
+  DISC_MAP = new Map(d.map(x=>[x.id, x.nombre]));
+  const sel = q('#cbDisciplina'); sel.innerHTML='';
+  d.forEach(x=>{
+    const o = ce('option'); o.value=x.id; o.textContent=x.nombre; sel.appendChild(o);
+  });
+}
+
+// ======= BRACKET (solo lectura) =======
+function renderRounds(roundsObj){
+  const wrap = q('#rounds'); const svg = q('#lines');
+  wrap.innerHTML=''; while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+  const rounds = Object.keys(roundsObj||{}).map(n=>+n).sort((a,b)=>a-b);
+  if (!rounds.length){ wrap.textContent='Sin partidos'; return; }
+
+  rounds.forEach((rn,idx)=>{
+    const col = ce('div','round');
+    const h = ce('h4'); h.textContent = `Ronda ${rn}`; col.appendChild(h);
+    (roundsObj[rn]||[]).forEach(m=>{
+      const card = ce('div','match'+(idx===rounds.length-1?' final':'')); // última = final
+      /* const sFinal = (m.s1!=null && m.s2!=null) ? `${m.s1}–${m.s2}` : '';
+      const sPar = (m.parcial_equipo1!=null || m.parcial_equipo2!=null)
+                   ? `${m.parcial_equipo1 ?? 0}–${m.parcial_equipo2 ?? 0}` : ''; */
+                   const penPar = (m.pen_parcial1!=null || m.pen_parcial2!=null)
+        ? `Penales Parcial: ${m.pen_parcial1 ?? 0}–${m.pen_parcial2 ?? 0}` : '';
+      const penFin = (m.penales_equipo1!=null || m.penales_equipo2!=null)
+        ? `Penales Final: ${m.penales_equipo1 ?? 0}–${m.penales_equipo2 ?? 0}` : '';
+
+      card.innerHTML = `
+        <div><b>${m.n1 || '—'}</b></div>
+        <div><b>${m.n2 || '—'}</b></div>
+        <div class="small">${m.fecha ? new Date(m.fecha).toLocaleString() : 'Sin horario'} [${m.estado||'pendiente'}]</div>
+        // <div class="small">${ sFinal ? 'Final: '+sFinal : (sPar? 'Parcial: '+sPar : '') }</div>
+        <div class="small">
+        ${ sFinal ? 'Final: '+sFinal : (sPar ? 'Parcial: '+sPar : '') }
+        ${ penFin ? ' • '+penFin : (penPar ? ' • '+penPar : '') }
+        </div>
+      `;
+      col.appendChild(card);
+    });
+    wrap.appendChild(col);
+  });
+
+  // ajustar SVG al contenido (sin dibujar conectores complejos)
+  const contentW = wrap.scrollWidth;
+  const contentH = wrap.scrollHeight;
+  svg.setAttribute('width', contentW);
+  svg.setAttribute('height', contentH);
+  svg.setAttribute('viewBox', `0 0 ${contentW} ${contentH}`);
+}
+
+// ======= PODIO (disciplinas sin llaves) =======
+async function renderPodio(did){
+  const p1 = q('#p1'), p2 = q('#p2'), p3 = q('#p3'), msg = q('#podioMsg');
+  p1.textContent = p2.textContent = p3.textContent = '—';
+  msg.textContent = '';
+
+  // Se asume que el backend expone GET /api/disciplinas/:id/podio
+  // con { primero, segundo, tercero } (strings o {sucursal,nombre})
+  try{
+    const data = await jfetch(`${BASE}/api/disciplinas/${did}/podio`);
+    // admitir tanto strings como objetos
+    const fmt = (x)=> !x ? '—' :
+      (typeof x === 'string' ? x : [x.sucursal, x.nombre].filter(Boolean).join(' — '));
+
+    p1.textContent = fmt(data.primero);
+    p2.textContent = fmt(data.segundo);
+    p3.textContent = fmt(data.tercero);
+
+    if(!data.primero && !data.segundo && !data.tercero){
+      msg.textContent = 'Aún no hay podio cargado.';
+    }
+  }catch(e){
+    msg.textContent = 'No se pudo obtener el podio.';
+  }
+}
+
+// ======= selector principal =======
+async function verDisciplina(){
+  const did = Number(q('#cbDisciplina').value||0);
+  if(!did) return;
+
+  const nombre = DISC_MAP.get(did) || '';
+  const sinCruce = DISCIPLINAS_SIN_CRUCE.has(nombre);
+
+  // Toggle de vistas
+  q('#bracketView').style.display = sinCruce ? 'none' : '';
+  q('#podioView').style.display   = sinCruce ? '' : 'none';
+  q('#tipoVista').textContent     = sinCruce ? '(podio manual)' : '(bracket)';
+
+  if (sinCruce){
+    await renderPodio(did);
+  } else {
+    try{
+      const r = await jfetch(`${BASE}/api/brackets/byDisciplina/${did}`);
+      renderRounds(r.rounds || {});
+    }catch(e){
+      console.error(e);
+      q('#rounds').textContent = 'No hay bracket para esa disciplina.';
+    }
+  }
+}
+q('#btnVer').onclick = verDisciplina;
+
+// ======= Medallero =======
+let _medalleroCache = [];
+
+async function loadMedallero(){
+  const data = await jfetch(`${BASE}/api/medallero`);
+  _medalleroCache = Array.isArray(data) ? data : [];
+
+  const cont = q('#medallero'); cont.innerHTML='';
+  const table = ce('table');
+  table.innerHTML = `<thead><tr><th>Sucursal</th><th>Puntos</th><th>Descripción</th></tr></thead>`;
+  const tb = ce('tbody');
+  (_medalleroCache||[]).forEach(r=>{
+    const tr = ce('tr');
+    tr.innerHTML = `<td>${r.sucursal}</td><td>${r.puntos}</td><td>${r.detalle||''}</td>`;
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb);
+  cont.appendChild(table);
+}
+
+
+
+
+
+
+/* function setCampeonMsg(data){
+  const el = document.getElementById('campeonMsg');
+  if (!el) return;
+  el.textContent = '';
+
+  if (!data) return;
+
+  // Formato A: { campeon, puntos }
+  if (Object.prototype.hasOwnProperty.call(data, 'campeon')) {
+    if (data.campeon) {
+      el.textContent = `🏆 Campeón Copa Challenger: ${data.campeon}` +
+        (data.puntos != null ? ` (${data.puntos} puntos)` : '');
+    }
+    return;
+  }
+
+  // Formato B: { finalizado: true, tops: [...] }
+  if (data.finalizado) {
+    const tops = Array.isArray(data.tops) ? data.tops : [];
+    if (tops.length > 1) {
+      el.textContent = `🏆 Campeón Copa Challenger (empate): ${tops.join(' — ')}`;
+    } else if (tops.length === 1) {
+      el.textContent = `🏆 Campeón Copa Challenger: ${tops[0]}`;
+    }
+  }
+} */
+
+// --- Campeón (leyenda) ---
+function computeTopFromMedallero() {
+  if (!_medalleroCache?.length) return null;
+  const max = Math.max(..._medalleroCache.map(r => Number(r.puntos||0)));
+  if (!isFinite(max)) return null;
+  const tops = _medalleroCache.filter(r => Number(r.puntos||0) === max)
+                              .map(r => `${r.sucursal}`);
+  return { finalizado: true, puntos: max, tops };
+}
+
+ let _lastCampeon = null; // cache pegajoso
+
+  function renderCampeonMsg(state) {
+  const el = document.getElementById('campeonMsg');
+  if (!el) return;
+
+  if (!state?.finalizado) {
+    el.textContent = '';   // 🔹 Limpia el mensaje si no está finalizado
+    return;
+  }
+
+  const tops = state.tops || [];
+  const pts = state.puntos || 0;
+
+  el.innerHTML = (tops.length > 1)
+    ? `🏆 Campeón Copa Challenger (empate): ${tops.join(' — ')} (${pts} puntos)`
+    : `🏆 Campeón Copa Challenger: ${tops[0] || '(sin datos)'} (${pts} puntos)`;
+}
+
+
+  async function fetchCampeon() {
+    try {
+      const st = await jfetch(`${BASE}/api/olimpiada/campeon`);
+      renderCampeonMsg(st);
+    } catch {
+      // si falla, no tocamos el mensaje (queda el último bueno)
+    }
+  }
+
+  // --- ÚNICO init + sockets ---
+(async ()=>{
+  if(!token()){ location.href='login_visor.html'; return; }
+
+  await cargarDisciplinas();
+  await verDisciplina();
+  await loadMedallero();
+
+  // lee estado actual (si ya finalizaron desde admin)
+  await fetchCampeon();
+
+  // polling hasta que finalice
+  startCampeonPolling();
+
+  // sockets (si no conectan, igual el polling funciona)
+  try{
+    const s = io(BASE, { transports:['websocket'], path:'/socket.io/' });
+    s.on('partido_updated', async () => { await verDisciplina(); });
+    s.on('medallero_changed', async () => {
+    await loadMedallero();
+    await verDisciplina();   // ← refresca bracket o podio según corresponda
+    });
+    s.on('olimpiada_finalizada', (state) => {
+      renderCampeonMsg(state);
+      // si llegó por socket que finalizó, corto el polling
+      if (_campeonTimer) { clearInterval(_campeonTimer); _campeonTimer = null; }
+    });
+  }catch{}
+})();
+
+
+// Pregunta al backend; si aún no finalizó, reintenta cada 5s
+let _campeonTimer = null;
+async function refreshCampeon() {
+  try {
+    const st = await jfetch(`${BASE}/api/olimpiada/campeon`);
+    if (st?.finalizado) {
+      // si viene sin tops (depende del backend), calculo con la tabla visible
+      const state = (st?.tops?.length ? st : computeTopFromMedallero()) || st;
+      renderCampeonMsg(state);
+      if (_campeonTimer) { clearInterval(_campeonTimer); _campeonTimer = null; }
+    } else {
+      renderCampeonMsg({ finalizado:false });  // oculto
+    }
+  } catch {
+    // silencioso; vuelvo a intentar si hay timer
+  }
+}
+
+// Arranca el polling cada 5s hasta que finalice
+function startCampeonPolling() {
+  if (_campeonTimer) clearInterval(_campeonTimer);
+  _campeonTimer = setInterval(refreshCampeon, 5000);
+  refreshCampeon();
+}
+
+
+async function loadCampeon(){
+  try {
+    const data = await jfetch(`${BASE}/api/olimpiada/campeon`);
+    setCampeonMsg(data);
+  } catch {
+    setCampeonMsg(null);
+  }
+}
+
+
+</script>
+<script>
+// --- Navegación de vistas ---
+function showView(name){
+  q('#view-inicio').style.display    = (name==='inicio') ? '' : 'none';
+  q('#view-ubicacion').style.display = (name==='ubicacion') ? '' : 'none';
+}
+
+function openMenu(open){
+  q('#menu').style.display = open ? 'block' : 'none';
+  q('#backdrop').style.display = open ? 'block' : 'none';
+}
+
+// Botón menú y acciones
+// Botón menú y acciones
+q('#btnMenu').onclick  = (e) => {
+  const m = q('#menu');
+  const r = e.currentTarget.getBoundingClientRect(); // posición del botón
+  // deja un margen de 8px debajo del botón
+  m.style.left = `${r.left}px`;
+  m.style.top  = `${r.bottom + 8}px`;
+  openMenu(true);
+};
+q('#backdrop').onclick = () => openMenu(false);
+
+q('#miInicio').onclick    = () => { showView('inicio');    openMenu(false); };
+q('#miUbicacion').onclick = () => { showView('ubicacion'); openMenu(false); };
+q('#miSalir').onclick     = () => { openMenu(false); q('#btnSalir').click(); };
+
+
+// Arranque siempre en "Inicio"
+showView('inicio');
+</script>
+
+</body>
+</html>
